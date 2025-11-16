@@ -1,0 +1,7 @@
+pyspark
+datasets
+pyarrow
+# NLP
+transformers
+sentence-transformers
+torch
