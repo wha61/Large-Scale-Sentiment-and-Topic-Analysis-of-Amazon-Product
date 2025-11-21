@@ -7,8 +7,13 @@ def main():
         .appName("InspectAmazonAllBeauty") \
         .getOrCreate()
 
-    category = "All_Beauty"
-    path = f"data/raw/{category}_reviews.parquet"
+
+    ##### SET HERE #####
+    category = "all_beauty"
+    ##### ######## #####
+
+
+    path = f"data/raw/{category}_reviews"
 
     print(f"Reading {path} ...")
     df = spark.read.parquet(path)

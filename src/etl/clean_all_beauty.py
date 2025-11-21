@@ -17,8 +17,8 @@ def main():
         .appName("CleanAllBeautyReviews") \
         .getOrCreate()
 
-    raw_path = "data/raw/All_Beauty_reviews.parquet"
-    out_path = "data/processed/All_Beauty_clean.parquet"
+    raw_path = "data/raw/all_beauty_reviews"
+    out_path = "data/processed/all_beauty_clean"
 
     print(f"Reading raw data from: {raw_path}")
     df = spark.read.parquet(raw_path)

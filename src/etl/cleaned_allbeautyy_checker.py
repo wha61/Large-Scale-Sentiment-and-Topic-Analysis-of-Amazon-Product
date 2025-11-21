@@ -5,7 +5,7 @@ def main():
         .appName("InspectCleanedAllBeauty") \
         .getOrCreate()
 
-    path = "data/processed/All_Beauty_clean.parquet"
+    path = "data/processed/all_beauty_clean"
     df = spark.read.parquet(path)
 
     print("=== Schema ===")
