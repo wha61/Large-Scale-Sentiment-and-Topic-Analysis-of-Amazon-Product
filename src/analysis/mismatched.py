@@ -7,7 +7,7 @@ def main():
         .getOrCreate()
     )
 
-    input_path = "data/processed/All_Beauty_sentiment_sample.parquet"
+    input_path = "data/processed/all_beauty_sentiment"
     df = spark.read.parquet(input_path)
 
     needed_cols = ["rating", "text", "sentiment_star", "sentiment_conf"]
@@ -45,8 +45,8 @@ def main():
     top_k = 200
     top_mismatch = mismatched.limit(top_k)
 
-    output_dir_csv = "output/mismatched_all_beauty_sample_csv"
-    output_dir_parquet = "output/mismatched_all_beauty_sample_parquet"
+    output_dir_csv = "output/mismatched_all_beauty_csv"
+    output_dir_parquet = "data/processed/all_beauty_mismatched"
 
     (
         top_mismatch

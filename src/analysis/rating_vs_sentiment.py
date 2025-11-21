@@ -7,7 +7,7 @@ def main():
         .getOrCreate()
     )
 
-    path = "data/processed/All_Beauty_sentiment_sample.parquet"
+    path = "data/processed/all_beauty_sentiment"
     df = spark.read.parquet(path)
 
     df = df.select("rating", "sentiment_star", "sentiment_conf")
@@ -30,7 +30,7 @@ def main():
     print("\nPer-rating summary:")
     summary.show(truncate=False)
 
-    output_path = "output/rating_vs_sentiment_all_beauty_sample"
+    output_path = "output/rating_vs_sentiment_all_beauty"
     (
         summary
         .coalesce(1)
