@@ -43,6 +43,62 @@ def load_topic_info():
         return df.to_dict('records')
     return []
 
+def load_sentiment_data():
+    """Load full sentiment data for temporal and distribution analysis"""
+    try:
+        from pyspark.sql import SparkSession
+        from pyspark.sql import functions as F
+        spark = SparkSession.builder.appName("LoadSentimentData").getOrCreate()
+        df = spark.read.parquet(str(BASE_DIR / "data" / "processed" / "all_beauty_sentiment"))
+        
+        # Get yearly trends
+        yearly = df.groupBy("year").agg(
+            F.avg("sentiment_star").alias("avg_sentiment"),
+            F.avg("rating").alias("avg_rating"),
+            F.count("*").alias("count")
+        ).orderBy("year").toPandas()
+        
+        # Get monthly trends (sample for performance)
+        monthly = df.groupBy("year", "month").agg(
+            F.avg("sentiment_star").alias("avg_sentiment"),
+            F.avg("rating").alias("avg_rating"),
+            F.count("*").alias("count")
+        ).orderBy("year", "month").limit(1000).toPandas()
+        
+        # Get product-level sentiment (top 20 by review count)
+        product_sentiment = df.groupBy("asin").agg(
+            F.avg("sentiment_star").alias("avg_sentiment"),
+            F.avg("rating").alias("avg_rating"),
+            F.count("*").alias("count")
+        ).orderBy(F.col("count").desc()).limit(20).toPandas()
+        
+        spark.stop()
+        
+        return {
+            'yearly': yearly.to_dict('records'),
+            'monthly': monthly.to_dict('records'),
+            'product': product_sentiment.to_dict('records')
+        }
+    except Exception as e:
+        print(f"Error loading sentiment data: {e}")
+        import traceback
+        traceback.print_exc()
+        return {'yearly': [], 'monthly': [], 'product': []}
+
+def load_anomalous_users():
+    """Load anomalous users data"""
+    import glob
+    csv_pattern = str(OUTPUT_DIR / "suspicious_users_analysis" / "part-*.csv")
+    csv_files = glob.glob(csv_pattern)
+    if csv_files:
+        try:
+            df = pd.read_csv(csv_files[0])
+            return df.to_dict('records')
+        except Exception as e:
+            print(f"Error reading anomalous users CSV: {e}")
+            return []
+    return []
+
 @app.route('/')
 def index():
     """Main dashboard page"""
@@ -81,6 +137,27 @@ def api_stats():
                    sum(r.get('count', 0) for r in rating_data) if rating_data else 0
     }
     return jsonify(stats)
+
+@app.route('/api/temporal-trends')
+def api_temporal_trends():
+    """API endpoint for yearly and monthly trends"""
+    data = load_sentiment_data()
+    return jsonify(data)
+
+@app.route('/api/sentiment-distribution')
+def api_sentiment_distribution():
+    """API endpoint for sentiment distribution by product/category"""
+    data = load_sentiment_data()
+    return jsonify({
+        'product': data.get('product', []),
+        'category': [{'category': 'All Beauty', 'avg_sentiment': 3.5, 'count': 1000}]  # Placeholder
+    })
+
+@app.route('/api/anomalous-users')
+def api_anomalous_users():
+    """API endpoint for anomalous users"""
+    data = load_anomalous_users()
+    return jsonify(data)
 
 @app.route('/static/macro_correlation_plot.png')
 def serve_macro_plot():
