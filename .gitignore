@@ -3,3 +3,5 @@
 output.txt
 *.crc
 venv.txt
+venv/
+/venv

@@ -32,8 +32,10 @@ def download_category(category="All_Beauty"):
         # trust_remote_code=True
     )
 
-    out_path = f"data/raw/{category}_reviews"
-    os.makedirs(out_path, exist_ok=True) 
+    out_dir = f"data/raw"
+    os.makedirs(out_dir, exist_ok=True)
+
+    out_path = f"data/raw/{category}_reviews.parquet"
     print(f"Saving to {out_path}")
     ds.to_parquet(out_path)
     print("Done!")
