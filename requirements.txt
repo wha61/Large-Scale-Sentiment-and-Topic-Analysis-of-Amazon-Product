@@ -7,7 +7,7 @@ umap-learn==0.5.6
 bertopic
 matplotlib
 seaborn
-datasets
-pyarrow
+datasets==2.14.7
+pyarrow==14.0.1
 scikit-learn
 flask
