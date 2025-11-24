@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Amazon Reviews Analysis Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📊 Amazon Reviews Analysis Dashboard</h1>
+            <p class="subtitle">Large-Scale Sentiment and Topic Analysis</p>
+        </header>
+
+        <!-- Statistics Overview -->
+        <section class="stats-section">
+            <h2>📈 Overview Statistics</h2>
+            <div class="stats-grid" id="statsGrid">
+                <div class="stat-card">
+                    <div class="stat-value" id="totalRatings">-</div>
+                    <div class="stat-label">Total Reviews</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="mismatchedCount">-</div>
+                    <div class="stat-label">Mismatched Reviews</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="topicCount">-</div>
+                    <div class="stat-label">Topics Identified</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="avgMAE">-</div>
+                    <div class="stat-label">Avg MAE</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Rating vs Sentiment Analysis -->
+        <section class="chart-section">
+            <h2>⭐ Rating vs Sentiment Analysis</h2>
+            <div class="chart-container">
+                <canvas id="ratingVsSentimentChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <canvas id="ratingDistributionChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <canvas id="maeByRatingChart"></canvas>
+            </div>
+        </section>
+
+        <!-- Topic Modeling Results -->
+        <section class="chart-section">
+            <h2>🔍 Topic Modeling Results</h2>
+            <div class="chart-container">
+                <canvas id="topicDistributionChart"></canvas>
+            </div>
+            <div class="table-container">
+                <h3>Topic Details</h3>
+                <table id="topicsTable">
+                    <thead>
+                        <tr>
+                            <th>Topic ID</th>
+                            <th>Count</th>
+                            <th>Name</th>
+                            <th>Top Words</th>
+                        </tr>
+                    </thead>
+                    <tbody id="topicsTableBody">
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Mismatched Reviews -->
+        <section class="chart-section">
+            <h2>⚠️ Mismatched Reviews Analysis</h2>
+            <div class="chart-container">
+                <canvas id="mismatchDistributionChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <canvas id="sentimentConfidenceChart"></canvas>
+            </div>
+            <div class="table-container">
+                <h3>Sample Mismatched Reviews</h3>
+                <div class="search-box">
+                    <input type="text" id="reviewSearch" placeholder="Search reviews...">
+                </div>
+                <table id="reviewsTable">
+                    <thead>
+                        <tr>
+                            <th>Rating</th>
+                            <th>Sentiment</th>
+                            <th>Confidence</th>
+                            <th>Difference</th>
+                            <th>Review Text</th>
+                        </tr>
+                    </thead>
+                    <tbody id="reviewsTableBody">
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Macro Correlation -->
+        <section class="image-section">
+            <h2>🌍 Macro-Economic Correlation</h2>
+            <div class="image-container">
+                <img src="/static/macro_correlation_plot.png" 
+                     alt="Macro Correlation Plot" 
+                     onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                <p style="display:none;">Macro correlation plot not available</p>
+            </div>
+        </section>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</body>
+</html>
+

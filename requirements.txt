@@ -10,3 +10,4 @@ seaborn
 datasets
 pyarrow
 scikit-learn
+flask
