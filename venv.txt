@@ -1,3 +1,5 @@
+// set up virtual environment
+
 # 1. create virtual environment
 python -m venv venv
 
@@ -9,3 +11,23 @@ pip install -r requirements.txt
 
 # exit virtual environment
 deactivate
+
+// set up pyspark
+
+# 1. Set JAVA_HOME (automatically finds Java installation)
+$javaPath = (Get-Command java).Source
+$env:JAVA_HOME = Split-Path (Split-Path $javaPath)
+
+# 2. Set SPARK_HOME (automatically finds PySpark installation)
+$pysparkPath = python -c "import pyspark; import os; print(os.path.dirname(pyspark.__file__))"
+$env:SPARK_HOME = $pysparkPath
+
+# 3. Update PATH
+$env:PATH = "$env:SPARK_HOME\bin;$env:JAVA_HOME\bin;$env:PATH"
+
+# 4. Verify environment variables
+echo "JAVA_HOME: $env:JAVA_HOME"
+echo "SPARK_HOME: $env:SPARK_HOME"
+
+# 5. Run pyspark
+venv\Scripts\pyspark.cmd

@@ -1,15 +1,11 @@
 """
 Download Amazon Product Reviews Dataset from Hugging Face
-
 Downloads raw review data for a specified category and saves as Parquet.
-
 Usage:
     python src/data/download_category_all_beauty.py
-
 Args:
     category (str): Product category name (e.g., "All_Beauty", "Toys_and_Games")
                    Must match exact case. Default: "All_Beauty"
-
 split (str): Data split to download. Options:
              - "full": Download all data (no train/test split)
              - "train": Training set (if available)
