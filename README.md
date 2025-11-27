@@ -56,22 +56,70 @@ The project is organized into a modular pipeline, separating data acquisition, E
 │   ├── data/                   # Data ingestion scripts
 │   ├── etl/                    # Data cleaning and schema inspection
 │   └── sentiment/              # Core AI inference engine
-├── requirements.txt            # Python dependencies
+├── requirements.txt            # Python3 dependencies
 └── run_pipeline.sh             # Master script to execute the full workflow
 ```
 ### Detailed File Descriptions
 
 #### 1. Data Acquisition (`src/data/`)
-* **`download_category_all_beauty.py`**: Uses the Hugging Face `datasets` library to download the raw "All_Beauty" Amazon review dataset and saves it as a Parquet file.
+* **`download_category.py`**: Uses the Hugging Face `datasets` library to download the raw "All_Beauty" Amazon review dataset and saves it as a Parquet file.
+
+    * **Default Usage:** Downloads the "All_Beauty" category by default.
+        ```bash
+        python3 src/data/download_category.py
+        ```
+    * **Custom Category:** You can specify any other category name as an argument (e.g., "Electronics", "Toys_and_Games").
+        ```bash
+        python3 src/data/download_category.py Electronics
+        ```
+Available Categories
+Use any of the names below as an argument for the downloader script (e.g., `python3 src/data/download_category.py Electronics`).
+| Category Name | Scale / Notes |
+| :--- | :--- |
+| **`All_Beauty`** | **Small** (Recommended for testing) |
+| `Amazon_Fashion` | Medium |
+| `Appliances` | Small |
+| `Arts_Crafts_and_Sewing` | Medium |
+| `Automotive` | Medium |
+| `Baby_Products` | Medium |
+| `Beauty_and_Personal_Care` | **Large** |
+| `Books` | **Very Large** (Requires High RAM) |
+| `CDs_and_Vinyl` | Medium |
+| `Cell_Phones_and_Accessories` | **Large** |
+| `Clothing_Shoes_and_Jewelry` | **Very Large** |
+| `Digital_Music` | Small |
+| `Electronics` | **Very Large** |
+| `Gift_Cards` | **Small** |
+| `Grocery_and_Gourmet_Food` | Medium |
+| `Handmade_Products` | Small |
+| `Health_and_Household` | **Large** |
+| `Health_and_Personal_Care` | Small |
+| `Home_and_Kitchen` | **Very Large** |
+| `Industrial_and_Scientific` | Small |
+| `Kindle_Store` | **Large** |
+| `Magazine_Subscriptions` | **Small** |
+| `Movies_and_TV` | **Large** |
+| `Musical_Instruments` | Small |
+| `Office_Products` | Medium |
+| `Patio_Lawn_and_Garden` | Medium |
+| `Pet_Supplies` | Medium |
+| `Software` | Small |
+| `Sports_and_Outdoors` | **Large** |
+| `Subscription_Boxes` | **Very Small** |
+| `Tools_and_Home_Improvement` | **Large** |
+| `Toys_and_Games` | Medium |
+| `Video_Games` | Small |
+
+> **Warning:** Categories marked as **Large** or **Very Large** contain tens of millions of reviews. Processing them may take significantly longer and require more memory.
 
 #### 2. ETL & Inspection (`src/etl/`)
-* **`clean_all_beauty.py`**: The main ETL script. It cleans the raw data by filtering null texts, converting Unix timestamps to standard datetime objects, extracting `year`/`month` features, and calculating text length.
+* **`clean_data.py`**: The main ETL script. It cleans the raw data by filtering null texts, converting Unix timestamps to standard datetime objects, extracting `year`/`month` features, and calculating text length.
 * **`raw_data_checker.py`**: Utility to inspect the schema and sample rows of the raw downloaded data.
 * **`cleaned_allbeautyy_checker.py`**: Verifies the schema and data quality after the cleaning process.
 * **`sentiment_allbeauty_checker.py`**: Checks the final dataset after sentiment inference, calculating global metrics like MAE (Mean Absolute Error).
 
 #### 3. Sentiment Inference (`src/sentiment/`)
-* **`sentiment_all_beauty.py`**: **The Core Engine**. This script performs scalable, distributed sentiment analysis using **PySpark Pandas UDFs**. It loads a pre-trained BERT model (`nlptown/bert-base-multilingual-uncased-sentiment`) on worker nodes to generate `sentiment_star` (1-5 scale) and `sentiment_conf` (confidence score) for the entire dataset.
+* **`sentiment.py`**: **The Core Engine**. This script performs scalable, distributed sentiment analysis using **PySpark Pandas UDFs**. It loads a pre-trained BERT model (`nlptown/bert-base-multilingual-uncased-sentiment`) on worker nodes to generate `sentiment_star` (1-5 scale) and `sentiment_conf` (confidence score) for the entire dataset.
 
 #### 4. Analysis (`src/analysis/`)
 **Micro-Level Analysis:**
@@ -85,11 +133,21 @@ The project is organized into a modular pipeline, separating data acquisition, E
 
 
 ## Prerequisites
+Before running the project, ensure you have the following software installed on your system:
+* **Python 3.8+**: Required for all analysis scripts.
+    * Verify installation: `python3 --version`
+* **Apache Spark**: Required for distributed ETL and scalable sentiment analysis.
+    * Ensure `spark-submit` is available in your system PATH.
+    * Verify installation: `spark-submit --version`
+* **Java (JDK 8 or 11)**: Required by Apache Spark runtime.
+    * Verify installation: `java -version`
+
+> **Note:** If you are running this on a cluster (e.g., AWS EMR, Databricks) or a university server, these tools are likely pre-installed.
+
 All dependencies have been stored in the requirements/txt file.
 Run command below to install all
 ```command
-pip install -r requirements.txt
-
+pip3 install -r requirements.txt
 ```
 
 
@@ -112,47 +170,47 @@ scikit-learn
 ## Execution Pipeline
 ```text
 graph TD
-    A [Download Data] -->|src/data/download_category_all_beauty.py| B 
-    (Raw Parquet `data/raw/all_beauty_sentiment`)
+    A [Download Data] -->|src/data/download_category.py| B 
+    (Raw Parquet `data/raw/{category}_reviews`)
 
-    B -->|src/etl/clean_all_beauty.py| C 
-    (Cleaned Data `data/processed/all_beauty_clean`) 
+    B -->|src/etl/clean_data.py| C 
+    (Cleaned Data `data/processed/{category}_clean`) 
 
     C -->|--test (Fast)| D[Test Mode: 1000 rows]
     C -->|(Full Data)| E[Full Mode: All rows]
 
     E or D --> F 
-    (Sentiment Data `data/processed/all_beauty_sentiment`)
+    (Sentiment Data `data/processed/{category}_sentiment`)
 
     F -->|src/analysis/macro_correlation.py| I
-    (Macro Correlation `output/macro_correlation_plot.png`)
+    (Macro Correlation `output/{category}_macro_correlation_plot.png`)
 
     F -->|src/analysis/detect_anomalous_users.py| J
-    (Anomalous Users `output/suspicious_users_analysis`)
+    (Anomalous Users `output/{category}_suspicious_users_analysis`)
 
     F -->|src/analysis/rating_vs_sentiment.py| K
-    (Rating vs Sentiment `output/rating_vs_sentiment_all_beauty`)
+    (Rating vs Sentiment `output/{category}_rating_vs_sentiment`)
 
     F -->|src/analysis/mismatched.py| L
-    (Mismatched Reviews `output/mismatched_all_beauty_csv`  &  `data/processed/all_beauty_mismatched`)
+    (Mismatched Reviews `output/{category}_mismatched_csv`  &  `data/processed/{category}_mismatched`)
 
     L -->|src/analysis/topic_modeling_mismatched.py| M
-    (Topic Modeling `output/topic_mismatched_barchart.html`  &  `output/mismatched_topics.csv` )
+    (Topic Modeling `output/{category}_topic_mismatched_barchart.html`  &  `output/{category}_mismatched_topics.csv` )
 
 ```
 
 #### Phase 1: Data Preparation
-1. Download Raw Data Downloads the "All_Beauty" dataset from Hugging Face.
+1. Download Raw Data Downloads the "#category" dataset from Hugging Face.
 ```
-python src/data/download_category_all_beauty.py
+python3 src/data/download_category.py {category}
 ```
 2. ETL & Cleaning Cleans the raw data, filters nulls, and formats timestamps.
 
-* Input: ```data/raw/all_beauty_reviews```
-* Output: ```data/processed/all_beauty_clean```
+* Input: ```data/raw/{category}_reviews```
+* Output: ```data/processed/{category}_clean```
 
 ```
-spark-submit src/etl/clean_all_beauty.py
+spark-submit src/etl/clean_data.py {category}
 ```
 #### Phase 2: Sentiment Inference
 This step uses PySpark and BERT to generate sentiment scores. Choose one mode:
@@ -160,17 +218,17 @@ This step uses PySpark and BERT to generate sentiment scores. Choose one mode:
 ```
 # Test Mode (Recommended for Debugging) Runs only on 1000 rows to verify the pipeline works quickly (< 2 mins).
 
-spark-submit src/sentiment/sentiment_all_beauty.py --test
+spark-submit src/sentiment/sentiment.py {category} --test
 ```
 
 ```
 # Full Production Mode Runs on the entire dataset. This may take hours depending on your hardware.
 
-spark-submit src/sentiment/sentiment_all_beauty.py
+spark-submit src/sentiment/sentiment.py {category}
 ```
 
 all mode will output data at
-```data/processed/all_beauty_sentiment```
+```data/processed/{category}_sentiment```
 
 
 #### Phase 3: Analytics & Visualization
@@ -178,22 +236,22 @@ Once `Phase 2` is complete, run these scripts in any order to generate insights.
 
 * User Behavior Analysis Detects "Spammers" (high volume, zero variance) and "Conflicted Users" (high rating, low sentiment).
 ```
-spark-submit src/analysis/detect_anomalous_users.py
+spark-submit src/analysis/detect_anomalous_users.py {category}
 ```
 
 * Macro-Economic Analysis Correlates sentiment trends with US Inflation rates (generates plot).
 ```
-python src/analysis/macro_correlation.py
+python3 src/analysis/macro_correlation.py {category}
 ```
 
 * Consistency Check Calculates MAE and consistency between User Ratings (1-5) and Sentiment (1-5).
 ```
-spark-submit src/analysis/rating_vs_sentiment.py
+spark-submit src/analysis/rating_vs_sentiment.py {category}
 ```
 
 * Mismatch Extraction Identifies reviews where Rating and Sentiment differ significantly (e.g., 5-star rating but negative text).
 ```
-spark-submit src/analysis/mismatched.py
+spark-submit src/analysis/mismatched.py {category}
 ```
 
 #### Phase 4: Advanced Topic Modeling
@@ -201,16 +259,16 @@ Once `Mismatch Extraction Identifies` is complete,
 Run BERTopic Analyzes the "mismatched" reviews to understand why users gave conflicting feedback.
 
 ```
-python src/analysis/topic_modeling_mismatched.py
+python3 src/analysis/topic_modeling_mismatched.py {category}
 ```
 
-output: `output/topic_mismatched_barchart.html `
+output: `output/{category}_topic_mismatched_barchart.html `
 
 
 #### Helper Tools (Optional for Debug)
 
-* `spark-submit src/etl/raw_data_checker.py` (Check raw download)
+* `spark-submit src/etl/raw_checker.py {category}` (Check raw download)
 
-* `spark-submit src/etl/cleaned_allbeautyy_checker.py` (Check ETL output)
+* `spark-submit src/etl/cleaned_checker.py {category}` (Check ETL output)
 
-* `spark-submit src/etl/sentiment_allbeauty_checker.py` (Check final model output & MAE)
+* `spark-submit src/etl/sentiment_checker.py {category}` (Check final model output & MAE)
