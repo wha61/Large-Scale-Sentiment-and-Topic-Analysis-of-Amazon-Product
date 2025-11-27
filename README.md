@@ -55,7 +55,8 @@ The project is organized into a modular pipeline, separating data acquisition, E
 │   ├── analysis/               # Analytical scripts (Micro & Macro level)
 │   ├── data/                   # Data ingestion scripts
 │   ├── etl/                    # Data cleaning and schema inspection
-│   └── sentiment/              # Core AI inference engine
+│   ├── sentiment/              # Core AI inference engine
+│   └── web_dashboard/          # Interactive web dashboard for visualization
 ├── requirements.txt            # Python3 dependencies
 └── run_pipeline.sh             # Master script to execute the full workflow
 ```
@@ -130,6 +131,18 @@ Use any of the names below as an argument for the downloader script (e.g., `pyth
 
 **Macro-Level Analysis:**
 * **`macro_correlation.py`**: Aggregates sentiment scores by year and correlates them with external economic indicators (Inflation Rate) to identify macro-economic trends in consumer sentiment.
+
+#### 5. Web Dashboard (`src/web_dashboard/`)
+* **`app.py`**: Flask web application that provides an interactive dashboard for visualizing all analysis results. Features include:
+    * Statistics overview (total reviews, mismatched count, topics, MAE)
+    * Rating vs Sentiment interactive charts
+    * Topic modeling visualization with top words
+    * Mismatched reviews explorer with search functionality
+    * Macro-economic correlation plots
+* **`run_dashboard.bat`**: Windows batch script for easy dashboard startup
+* **`run_dashboard.sh`**: Linux/Mac shell script for dashboard startup
+* **`README.md`**: Detailed dashboard documentation
+* **`QUICKSTART.md`**: Quick start guide for dashboard usage
 
 
 ## Prerequisites
@@ -263,6 +276,55 @@ python3 src/analysis/topic_modeling_mismatched.py {category}
 ```
 
 output: `output/{category}_topic_mismatched_barchart.html `
+
+
+#### Phase 5: Web Dashboard Visualization
+After completing the analysis pipeline, you can launch an interactive web dashboard to visualize all the results.
+
+**Prerequisites:**
+- Flask is already included in `requirements.txt`
+- Ensure you have completed at least Phase 2 (Sentiment Inference) and Phase 3 (Analytics) to generate the required output files
+
+**Windows Users:**
+```bash
+# Option 1: Double-click the batch file
+src/web_dashboard/run_dashboard.bat
+
+# Option 2: Run from command line
+cd src/web_dashboard
+python app.py
+```
+
+**Linux/Mac Users:**
+```bash
+cd src/web_dashboard
+python app.py
+```
+
+**Access the Dashboard:**
+Open your web browser and navigate to:
+```
+http://localhost:5000
+```
+
+**Dashboard Features:**
+- 📊 **Statistics Overview**: Total reviews, mismatched reviews count, topics identified, average MAE
+- ⭐ **Rating vs Sentiment Analysis**: Interactive charts comparing user ratings with AI sentiment scores
+- 🔍 **Topic Modeling Results**: Visualize discovered topics from BERTopic with top words
+- ⚠️ **Mismatched Reviews**: Explore reviews where rating and sentiment differ significantly
+- 🌍 **Macro-Economic Correlation**: View correlation between sentiment trends and inflation rates
+
+**Required Output Files:**
+The dashboard expects the following files in the `output/` directory:
+- `rating_vs_sentiment_{category}/part-00000-*.csv` - Rating vs sentiment comparison data
+- `mismatched_{category}_csv/part-00000-*.csv` - Mismatched reviews data
+- `mismatched_topics.csv` - Topic modeling results
+- `macro_correlation_plot.png` - Macro-economic correlation plot
+
+> **Note:** If you see "Error loading data", make sure you've run the analysis pipeline (Phases 2-4) first to generate the required output files.
+
+**Stop the Dashboard:**
+Press `Ctrl+C` in the terminal to stop the Flask server.
 
 
 #### Helper Tools (Optional for Debug)
