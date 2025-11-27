@@ -2,3 +2,4 @@
 /notebooks
 output.txt
 *.crc
+/output
