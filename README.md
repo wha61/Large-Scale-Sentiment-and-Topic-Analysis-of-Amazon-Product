@@ -178,6 +178,7 @@ seaborn
 datasets
 pyarrow
 scikit-learn
+flask
 ```
 
 ## Execution Pipeline
