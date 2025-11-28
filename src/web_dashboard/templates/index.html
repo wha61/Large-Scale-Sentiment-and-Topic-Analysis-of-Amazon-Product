@@ -52,6 +52,76 @@
             </div>
         </section>
 
+        <!-- Data Processing Scale Statistics -->
+        <section class="chart-section">
+            <h2>Data Processing Scale Statistics</h2>
+            <div class="info-box">
+                <p>This panel shows the scale of data processing across different stages of the pipeline, highlighting the big data processing capabilities using Apache Spark.</p>
+            </div>
+            
+            <div class="stats-grid" id="processingStatsGrid">
+                <div class="stat-card">
+                    <div class="stat-label">Raw Data</div>
+                    <div class="stat-value" id="rawCount">-</div>
+                    <div class="stat-description">Total records in raw dataset</div>
+                    <div class="stat-meta">
+                        <span>Size: <span id="rawSize">-</span> MB</span>
+                        <span>Partitions: <span id="rawPartitions">-</span></span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Cleaned Data</div>
+                    <div class="stat-value" id="cleanedCount">-</div>
+                    <div class="stat-description">Records after ETL processing</div>
+                    <div class="stat-meta">
+                        <span>Size: <span id="cleanedSize">-</span> MB</span>
+                        <span>Partitions: <span id="cleanedPartitions">-</span></span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Sentiment Analysis</div>
+                    <div class="stat-value" id="sentimentCount">-</div>
+                    <div class="stat-description">Records with sentiment scores</div>
+                    <div class="stat-meta">
+                        <span>Size: <span id="sentimentSize">-</span> MB</span>
+                        <span>Partitions: <span id="sentimentPartitions">-</span></span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Data Retention</div>
+                    <div class="stat-value" id="retentionRate">-</div>
+                    <div class="stat-description">Percentage of data retained after cleaning</div>
+                    <div class="stat-meta">
+                        <span>Reduction: <span id="dataReduction">-</span>%</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="chart-container" style="margin-top: 30px;">
+                <canvas id="dataProcessingChart"></canvas>
+            </div>
+
+            <div class="stats-grid" style="margin-top: 30px;">
+                <div class="stat-card">
+                    <div class="stat-label">Spark Configuration</div>
+                    <div class="stat-description" style="text-align: left; padding: 10px;">
+                        <div><strong>App Name:</strong> <span id="sparkAppName">-</span></div>
+                        <div><strong>Spark Version:</strong> <span id="sparkVersion">-</span></div>
+                        <div><strong>Default Parallelism:</strong> <span id="sparkParallelism">-</span></div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Data Quality Metrics</div>
+                    <div class="stat-description" style="text-align: left; padding: 10px;">
+                        <div><strong>Completeness:</strong> <span id="dataCompleteness">-</span>%</div>
+                        <div><strong>Null Text Fields:</strong> <span id="nullText">-</span></div>
+                        <div><strong>Null Ratings:</strong> <span id="nullRating">-</span></div>
+                        <div><strong>Null Sentiment:</strong> <span id="nullSentiment">-</span></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
         <!-- Temporal Trends -->
         <section class="chart-section">
             <h2>Temporal Sentiment Trends</h2>

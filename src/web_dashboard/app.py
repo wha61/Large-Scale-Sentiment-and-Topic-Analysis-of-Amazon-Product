@@ -99,6 +99,137 @@ def load_anomalous_users():
             return []
     return []
 
+def load_data_processing_stats():
+    """Load data processing scale statistics using Spark"""
+    try:
+        from pyspark.sql import SparkSession
+        from pyspark.sql import functions as F
+        import os
+        
+        spark = SparkSession.builder.appName("DataProcessingStats").getOrCreate()
+        
+        # Paths to different data stages
+        raw_path = BASE_DIR / "data" / "raw" / "All_Beauty_reviews.parquet"
+        clean_path = BASE_DIR / "data" / "processed" / "all_beauty_clean"
+        sentiment_path = BASE_DIR / "data" / "processed" / "all_beauty_sentiment"
+        
+        stats = {
+            'raw': {'count': 0, 'size_mb': 0, 'partitions': 0},
+            'cleaned': {'count': 0, 'size_mb': 0, 'partitions': 0},
+            'sentiment': {'count': 0, 'size_mb': 0, 'partitions': 0}
+        }
+        
+        # Get raw data stats
+        if raw_path.exists():
+            try:
+                df_raw = spark.read.parquet(str(raw_path))
+                stats['raw']['count'] = df_raw.count()
+                stats['raw']['partitions'] = df_raw.rdd.getNumPartitions()
+                raw_size = os.path.getsize(raw_path) / (1024 * 1024)  # MB
+                stats['raw']['size_mb'] = round(raw_size, 2)
+                print(f"Raw data: {stats['raw']['count']} records, {stats['raw']['size_mb']} MB")
+            except Exception as e:
+                print(f"Error reading raw data: {e}")
+                import traceback
+                traceback.print_exc()
+        
+        # Get cleaned data stats
+        if clean_path.exists():
+            has_parquet = any(clean_path.rglob('*.parquet'))
+            if has_parquet or (clean_path / "_SUCCESS").exists():
+                try:
+                    print(f"Reading cleaned data from: {clean_path}")
+                    df_clean = spark.read.parquet(str(clean_path))
+                    stats['cleaned']['count'] = df_clean.count()
+                    stats['cleaned']['partitions'] = df_clean.rdd.getNumPartitions()
+                    clean_size = sum(f.stat().st_size for f in clean_path.rglob('*') if f.is_file()) / (1024 * 1024)
+                    stats['cleaned']['size_mb'] = round(clean_size, 2)
+                    print(f"Cleaned data: {stats['cleaned']['count']} records, {stats['cleaned']['size_mb']} MB")
+                except Exception as e:
+                    print(f"Error reading cleaned data: {e}")
+                    import traceback
+                    traceback.print_exc()
+            else:
+                print(f"Cleaned path exists but no parquet files found: {clean_path}")
+        
+        # Get sentiment data stats
+        if sentiment_path.exists():
+            has_parquet = any(sentiment_path.rglob('*.parquet'))
+            if has_parquet or (sentiment_path / "_SUCCESS").exists():
+                try:
+                    print(f"Reading sentiment data from: {sentiment_path}")
+                    df_sentiment = spark.read.parquet(str(sentiment_path))
+                    stats['sentiment']['count'] = df_sentiment.count()
+                    stats['sentiment']['partitions'] = df_sentiment.rdd.getNumPartitions()
+                    sentiment_size = sum(f.stat().st_size for f in sentiment_path.rglob('*') if f.is_file()) / (1024 * 1024)
+                    stats['sentiment']['size_mb'] = round(sentiment_size, 2)
+                    print(f"Sentiment data: {stats['sentiment']['count']} records, {stats['sentiment']['size_mb']} MB")
+                    
+                    # Get additional Spark metrics
+                    spark_context = spark.sparkContext
+                    stats['spark_info'] = {
+                        'app_name': spark_context.appName,
+                        'spark_version': spark_context.version,
+                        'default_parallelism': spark_context.defaultParallelism
+                    }
+                    
+                    # Get data quality metrics
+                    total_rows = stats['sentiment']['count']
+                    if total_rows > 0:
+                        null_counts = df_sentiment.select([
+                            F.sum(F.when(F.col(c).isNull(), 1).otherwise(0)).alias(c) 
+                            for c in ['text', 'rating', 'sentiment_star']
+                        ]).collect()[0]
+                        
+                        stats['data_quality'] = {
+                            'null_text': null_counts['text'],
+                            'null_rating': null_counts['rating'],
+                            'null_sentiment': null_counts['sentiment_star'],
+                            'completeness': round((1 - (null_counts['text'] + null_counts['rating'] + null_counts['sentiment_star']) / (total_rows * 3)) * 100, 2)
+                        }
+                except Exception as e:
+                    print(f"Error reading sentiment data: {e}")
+                    import traceback
+                    traceback.print_exc()
+            else:
+                print(f"Sentiment path exists but no parquet files found: {sentiment_path}")
+        else:
+            print(f"Sentiment path does not exist: {sentiment_path}")
+        
+        # Get Spark info if not already set
+        if 'spark_info' not in stats or not stats['spark_info']:
+            try:
+                spark_context = spark.sparkContext
+                stats['spark_info'] = {
+                    'app_name': spark_context.appName,
+                    'spark_version': spark_context.version,
+                    'default_parallelism': spark_context.defaultParallelism
+                }
+            except:
+                pass
+        
+        spark.stop()
+        
+        # Calculate processing metrics
+        if stats['raw']['count'] > 0 and stats['cleaned']['count'] > 0:
+            stats['processing_metrics'] = {
+                'retention_rate': round((stats['cleaned']['count'] / stats['raw']['count']) * 100, 2),
+                'data_reduction': round(((stats['raw']['count'] - stats['cleaned']['count']) / stats['raw']['count']) * 100, 2)
+            }
+        
+        print(f"Final stats: {stats}")
+        return stats
+        
+    except Exception as e:
+        print(f"Error loading data processing stats: {e}")
+        import traceback
+        traceback.print_exc()
+        return {
+            'raw': {'count': 0, 'size_mb': 0, 'partitions': 0},
+            'cleaned': {'count': 0, 'size_mb': 0, 'partitions': 0},
+            'sentiment': {'count': 0, 'size_mb': 0, 'partitions': 0}
+        }
+
 @app.route('/')
 def index():
     """Main dashboard page"""
@@ -158,6 +289,24 @@ def api_anomalous_users():
     """API endpoint for anomalous users"""
     data = load_anomalous_users()
     return jsonify(data)
+
+@app.route('/api/data-processing-stats')
+def api_data_processing_stats():
+    """API endpoint for data processing scale statistics"""
+    try:
+        data = load_data_processing_stats()
+        print(f"Data processing stats loaded: {data}")
+        return jsonify(data)
+    except Exception as e:
+        print(f"Error in API endpoint: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'raw': {'count': 0, 'size_mb': 0, 'partitions': 0},
+            'cleaned': {'count': 0, 'size_mb': 0, 'partitions': 0},
+            'sentiment': {'count': 0, 'size_mb': 0, 'partitions': 0},
+            'error': str(e)
+        }), 500
 
 @app.route('/static/macro_correlation_plot.png')
 def serve_macro_plot():

@@ -8,6 +8,7 @@ let stats = {};
 let temporalData = {};
 let distributionData = {};
 let anomalousUsers = [];
+let dataProcessingStats = {};
 
 // Chart instances
 let charts = {};
@@ -67,6 +68,22 @@ async function loadAllData() {
             renderAnomalyCharts();
         } catch (e) {
             console.warn('Anomaly data not available:', e);
+        }
+
+        // Load data processing statistics
+        try {
+            const processingStatsResponse = await fetch('/api/data-processing-stats');
+            if (!processingStatsResponse.ok) {
+                console.error('Failed to load data processing stats:', processingStatsResponse.status);
+                const errorData = await processingStatsResponse.json();
+                console.error('Error details:', errorData);
+            } else {
+                dataProcessingStats = await processingStatsResponse.json();
+                console.log('Data processing stats loaded:', dataProcessingStats);
+                renderDataProcessingStats();
+            }
+        } catch (e) {
+            console.error('Error loading data processing stats:', e);
         }
 
     } catch (error) {
@@ -848,4 +865,180 @@ function renderMismatchedTable(data) {
             });
         });
     }
+}
+
+// Render data processing statistics
+function renderDataProcessingStats() {
+    if (!dataProcessingStats || Object.keys(dataProcessingStats).length === 0) {
+        console.warn('No data processing stats available');
+        console.log('dataProcessingStats:', dataProcessingStats);
+        return;
+    }
+
+    console.log('Rendering data processing stats:', dataProcessingStats);
+
+    // Format numbers with commas
+    function formatNumber(num) {
+        if (num === null || num === undefined || num === 0 || num === '-') return '-';
+        return num.toLocaleString();
+    }
+
+    // Update raw data stats
+    const raw = dataProcessingStats.raw || {};
+    const rawCountEl = document.getElementById('rawCount');
+    const rawSizeEl = document.getElementById('rawSize');
+    const rawPartitionsEl = document.getElementById('rawPartitions');
+    if (rawCountEl) rawCountEl.textContent = formatNumber(raw.count);
+    if (rawSizeEl) rawSizeEl.textContent = raw.size_mb || '-';
+    if (rawPartitionsEl) rawPartitionsEl.textContent = raw.partitions || '-';
+
+    // Update cleaned data stats
+    const cleaned = dataProcessingStats.cleaned || {};
+    const cleanedCountEl = document.getElementById('cleanedCount');
+    const cleanedSizeEl = document.getElementById('cleanedSize');
+    const cleanedPartitionsEl = document.getElementById('cleanedPartitions');
+    if (cleanedCountEl) cleanedCountEl.textContent = formatNumber(cleaned.count);
+    if (cleanedSizeEl) cleanedSizeEl.textContent = cleaned.size_mb || '-';
+    if (cleanedPartitionsEl) cleanedPartitionsEl.textContent = cleaned.partitions || '-';
+
+    // Update sentiment data stats
+    const sentiment = dataProcessingStats.sentiment || {};
+    const sentimentCountEl = document.getElementById('sentimentCount');
+    const sentimentSizeEl = document.getElementById('sentimentSize');
+    const sentimentPartitionsEl = document.getElementById('sentimentPartitions');
+    if (sentimentCountEl) sentimentCountEl.textContent = formatNumber(sentiment.count);
+    if (sentimentSizeEl) sentimentSizeEl.textContent = sentiment.size_mb || '-';
+    if (sentimentPartitionsEl) sentimentPartitionsEl.textContent = sentiment.partitions || '-';
+
+    // Update processing metrics
+    const metrics = dataProcessingStats.processing_metrics || {};
+    const retentionRateEl = document.getElementById('retentionRate');
+    const dataReductionEl = document.getElementById('dataReduction');
+    if (retentionRateEl) retentionRateEl.textContent = metrics.retention_rate ? metrics.retention_rate + '%' : '-';
+    if (dataReductionEl) dataReductionEl.textContent = metrics.data_reduction || '-';
+
+    // Update Spark info
+    const sparkInfo = dataProcessingStats.spark_info || {};
+    const sparkAppNameEl = document.getElementById('sparkAppName');
+    const sparkVersionEl = document.getElementById('sparkVersion');
+    const sparkParallelismEl = document.getElementById('sparkParallelism');
+    if (sparkAppNameEl) sparkAppNameEl.textContent = sparkInfo.app_name || '-';
+    if (sparkVersionEl) sparkVersionEl.textContent = sparkInfo.spark_version || '-';
+    if (sparkParallelismEl) sparkParallelismEl.textContent = sparkInfo.default_parallelism || '-';
+
+    // Update data quality metrics
+    const quality = dataProcessingStats.data_quality || {};
+    const dataCompletenessEl = document.getElementById('dataCompleteness');
+    const nullTextEl = document.getElementById('nullText');
+    const nullRatingEl = document.getElementById('nullRating');
+    const nullSentimentEl = document.getElementById('nullSentiment');
+    if (dataCompletenessEl) dataCompletenessEl.textContent = quality.completeness || '-';
+    if (nullTextEl) nullTextEl.textContent = formatNumber(quality.null_text || 0);
+    if (nullRatingEl) nullRatingEl.textContent = formatNumber(quality.null_rating || 0);
+    if (nullSentimentEl) nullSentimentEl.textContent = formatNumber(quality.null_sentiment || 0);
+
+    // Render data processing flow chart
+    renderDataProcessingChart();
+}
+
+// Render data processing flow chart
+function renderDataProcessingChart() {
+    const ctx = document.getElementById('dataProcessingChart');
+    if (!ctx) return;
+
+    // Destroy existing chart if it exists
+    if (charts.dataProcessingChart) {
+        charts.dataProcessingChart.destroy();
+    }
+
+    const raw = dataProcessingStats.raw || {};
+    const cleaned = dataProcessingStats.cleaned || {};
+    const sentiment = dataProcessingStats.sentiment || {};
+
+    charts.dataProcessingChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: ['Raw Data', 'Cleaned Data', 'Sentiment Analysis'],
+            datasets: [
+                {
+                    label: 'Record Count',
+                    data: [raw.count || 0, cleaned.count || 0, sentiment.count || 0],
+                    backgroundColor: ['rgba(54, 162, 235, 0.6)', 'rgba(75, 192, 192, 0.6)', 'rgba(153, 102, 255, 0.6)'],
+                    borderColor: ['rgba(54, 162, 235, 1)', 'rgba(75, 192, 192, 1)', 'rgba(153, 102, 255, 1)'],
+                    borderWidth: 2,
+                    yAxisID: 'y'
+                },
+                {
+                    label: 'Data Size (MB)',
+                    data: [raw.size_mb || 0, cleaned.size_mb || 0, sentiment.size_mb || 0],
+                    backgroundColor: ['rgba(255, 99, 132, 0.6)', 'rgba(255, 159, 64, 0.6)', 'rgba(255, 205, 86, 0.6)'],
+                    borderColor: ['rgba(255, 99, 132, 1)', 'rgba(255, 159, 64, 1)', 'rgba(255, 205, 86, 1)'],
+                    borderWidth: 2,
+                    yAxisID: 'y1'
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Data Processing Pipeline: Record Count and Data Size Across Stages',
+                    font: {
+                        size: 16,
+                        weight: 'bold'
+                    }
+                },
+                legend: {
+                    display: true,
+                    position: 'top'
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.dataset.label || '';
+                            if (label) {
+                                label += ': ';
+                            }
+                            if (context.dataset.label === 'Record Count') {
+                                label += context.parsed.y.toLocaleString() + ' records';
+                            } else {
+                                label += context.parsed.y.toFixed(2) + ' MB';
+                            }
+                            return label;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    title: {
+                        display: true,
+                        text: 'Record Count'
+                    },
+                    ticks: {
+                        callback: function(value) {
+                            return value.toLocaleString();
+                        }
+                    }
+                },
+                y1: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    title: {
+                        display: true,
+                        text: 'Data Size (MB)'
+                    },
+                    grid: {
+                        drawOnChartArea: false
+                    }
+                }
+            }
+        }
+    });
 }
