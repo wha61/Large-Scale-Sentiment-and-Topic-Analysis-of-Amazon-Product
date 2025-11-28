@@ -308,11 +308,11 @@ http://localhost:5000
 ```
 
 **Dashboard Features:**
-- 📊 **Statistics Overview**: Total reviews, mismatched reviews count, topics identified, average MAE
-- ⭐ **Rating vs Sentiment Analysis**: Interactive charts comparing user ratings with AI sentiment scores
-- 🔍 **Topic Modeling Results**: Visualize discovered topics from BERTopic with top words
-- ⚠️ **Mismatched Reviews**: Explore reviews where rating and sentiment differ significantly
-- 🌍 **Macro-Economic Correlation**: View correlation between sentiment trends and inflation rates
+- **Statistics Overview**: Total reviews, mismatched reviews count, topics identified, average MAE
+- **Rating vs Sentiment Analysis**: Interactive charts comparing user ratings with AI sentiment scores
+- **Topic Modeling Results**: Visualize discovered topics from BERTopic with top words
+- **Mismatched Reviews**: Explore reviews where rating and sentiment differ significantly
+- **Macro-Economic Correlation**: View correlation between sentiment trends and inflation rates
 
 **Required Output Files:**
 The dashboard expects the following files in the `output/` directory:
