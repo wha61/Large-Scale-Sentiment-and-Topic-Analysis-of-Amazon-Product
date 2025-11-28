@@ -4,12 +4,12 @@ A local web dashboard for visualizing Amazon Reviews analysis results.
 
 ## Features
 
-- 📊 **Interactive Charts**: Multiple Chart.js visualizations
-- 📈 **Statistics Overview**: Key metrics at a glance
-- ⭐ **Rating vs Sentiment Analysis**: Compare user ratings with AI sentiment scores
-- 🔍 **Topic Modeling Results**: View discovered topics from BERTopic
-- ⚠️ **Mismatched Reviews**: Explore reviews where rating and sentiment differ
-- 🌍 **Macro-Economic Correlation**: View correlation with inflation rates
+- **Interactive Charts**: Multiple Chart.js visualizations
+- **Statistics Overview**: Key metrics at a glance
+- **Rating vs Sentiment Analysis**: Compare user ratings with AI sentiment scores
+- **Topic Modeling Results**: View discovered topics from BERTopic
+- **Mismatched Reviews**: Explore reviews where rating and sentiment differ
+- **Macro-Economic Correlation**: View correlation with inflation rates
 
 ## Installation
 

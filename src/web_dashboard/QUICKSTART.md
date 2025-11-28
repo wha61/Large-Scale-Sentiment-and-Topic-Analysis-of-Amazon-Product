@@ -1,60 +1,60 @@
-# 快速开始指南
+# Quick Start Guide
 
-## 启动Dashboard
+## Starting the Dashboard
 
-### Windows用户
-双击运行：
+### Windows Users
+Double-click to run:
 ```
 src/web_dashboard/run_dashboard.bat
 ```
 
-或者命令行：
+Or use command line:
 ```bash
 cd src/web_dashboard
 python app.py
 ```
 
-### Linux/Mac用户
+### Linux/Mac Users
 ```bash
 cd src/web_dashboard
 python app.py
 ```
 
-## 访问Dashboard
+## Accessing the Dashboard
 
-打开浏览器，访问：
+Open your web browser and navigate to:
 ```
 http://localhost:5000
 ```
 
-## 功能说明
+## Features Overview
 
-### 1. 统计概览
-- 总评论数
-- 不匹配评论数
-- 主题数量
-- 平均MAE
+### 1. Statistics Overview
+- Total reviews count
+- Mismatched reviews count
+- Topics identified
+- Average MAE
 
-### 2. 评分vs情感分析
-- **柱状图**: 各评分的平均情感分数
-- **环形图**: 评分分布
-- **折线图**: 各评分的MAE
+### 2. Rating vs Sentiment Analysis
+- **Bar Chart**: Average sentiment score by rating
+- **Doughnut Chart**: Rating distribution
+- **Line Chart**: MAE by rating
 
-### 3. 主题建模结果
-- **柱状图**: 主题分布
-- **表格**: 主题详情（包含关键词）
+### 3. Topic Modeling Results
+- **Bar Chart**: Topic distribution
+- **Table**: Detailed topic information with top words
 
-### 4. 不匹配评论分析
-- **柱状图**: 不匹配程度分布
-- **饼图**: 情感置信度分布
-- **可搜索表格**: 不匹配评论样本（支持搜索）
+### 4. Mismatched Reviews Analysis
+- **Bar Chart**: Mismatch distribution
+- **Pie Chart**: Sentiment confidence distribution
+- **Searchable Table**: Sample mismatched reviews (with search functionality)
 
-### 5. 宏观经济相关性
-- 显示年度情感趋势与通胀率的相关性图表
+### 5. Macro-Economic Correlation
+- Displays yearly sentiment trends vs inflation rate correlation chart
 
-## 注意事项
+## Notes
 
-1. 确保已运行分析pipeline生成output数据
-2. 如果看到"Error loading data"，检查output文件夹中是否有相应的CSV文件
-3. 按Ctrl+C停止服务器
+1. Make sure you have run the analysis pipeline to generate output data
+2. If you see "Error loading data", check if the corresponding CSV files exist in the output folder
+3. Press Ctrl+C to stop the server
 
