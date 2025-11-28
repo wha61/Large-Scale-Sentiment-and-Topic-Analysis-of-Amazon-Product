@@ -2,4 +2,6 @@
 /notebooks
 output.txt
 *.crc
+venv/
+/venv
 /output

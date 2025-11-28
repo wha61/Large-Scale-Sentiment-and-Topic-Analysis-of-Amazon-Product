@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Amazon Reviews Analysis Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Amazon Reviews Analysis Dashboard</h1>
+            <p class="subtitle">Large-Scale Sentiment and Topic Analysis</p>
+        </header>
+
+        <!-- Statistics Overview -->
+        <section class="stats-section">
+            <h2>Overview Statistics</h2>
+            <div class="stats-grid" id="statsGrid">
+                <div class="stat-card" onclick="showStatDetails('total')">
+                    <div class="stat-value" id="totalRatings">-</div>
+                    <div class="stat-label">Total Reviews</div>
+                    <div class="stat-description">Total number of reviews analyzed in the dataset</div>
+                </div>
+                <div class="stat-card" onclick="showStatDetails('mismatched')">
+                    <div class="stat-value" id="mismatchedCount">-</div>
+                    <div class="stat-label">Mismatched Reviews</div>
+                    <div class="stat-description">Reviews where user rating differs significantly from sentiment analysis</div>
+                </div>
+                <div class="stat-card" onclick="showStatDetails('topics')">
+                    <div class="stat-value" id="topicCount">-</div>
+                    <div class="stat-label">Topics Identified</div>
+                    <div class="stat-description">Number of distinct topics discovered through topic modeling</div>
+                </div>
+                <div class="stat-card" onclick="showStatDetails('mae')">
+                    <div class="stat-value" id="avgMAE">-</div>
+                    <div class="stat-label">Average MAE</div>
+                    <div class="stat-description">Mean Absolute Error: Average difference between user ratings and AI sentiment scores</div>
+                </div>
+            </div>
+            
+            <!-- MAE Explanation -->
+            <div class="info-box">
+                <h4>About MAE (Mean Absolute Error)</h4>
+                <p>
+                    MAE measures the average absolute difference between user ratings (1-5 stars) and AI-generated sentiment scores (1-5 stars). 
+                    A lower MAE indicates better alignment between human ratings and automated sentiment analysis. 
+                    For example, an MAE of 0.5 means that on average, the sentiment score differs from the user rating by 0.5 stars.
+                </p>
+            </div>
+        </section>
+
+        <!-- Temporal Trends -->
+        <section class="chart-section">
+            <h2>Temporal Sentiment Trends</h2>
+            <div class="tabs">
+                <button class="tab active" onclick="switchTab('yearly')">Yearly Trends</button>
+                <button class="tab" onclick="switchTab('monthly')">Monthly Trends</button>
+            </div>
+            <div id="yearly-tab" class="tab-content active">
+                <div class="chart-container">
+                    <canvas id="yearlyTrendChart"></canvas>
+                </div>
+            </div>
+            <div id="monthly-tab" class="tab-content">
+                <div class="chart-container">
+                    <canvas id="monthlyTrendChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- Sentiment Distribution -->
+        <section class="chart-section">
+            <h2>Sentiment Distribution Analysis</h2>
+            <div class="tabs">
+                <button class="tab active" onclick="switchDistributionTab('product')">By Product</button>
+                <button class="tab" onclick="switchDistributionTab('category')">By Category</button>
+            </div>
+            <div id="product-dist-tab" class="tab-content active">
+                <div class="chart-container">
+                    <canvas id="productSentimentChart"></canvas>
+                </div>
+                <div class="info-box">
+                    <p>Top products by review volume. Sentiment scores aggregated per product (ASIN).</p>
+                </div>
+            </div>
+            <div id="category-dist-tab" class="tab-content">
+                <div class="chart-container">
+                    <canvas id="categorySentimentChart"></canvas>
+                </div>
+                <div class="info-box">
+                    <p>Sentiment distribution across product categories. Currently showing All Beauty category analysis.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Rating vs Sentiment Analysis -->
+        <section class="chart-section">
+            <h2>Rating vs Sentiment Analysis</h2>
+            <div class="chart-container">
+                <canvas id="ratingVsSentimentChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <canvas id="ratingDistributionChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <canvas id="maeByRatingChart"></canvas>
+            </div>
+        </section>
+
+        <!-- Topic Modeling Results -->
+        <section class="chart-section">
+            <h2>Topic Modeling Results</h2>
+            <div class="info-box">
+                <h4>Common Concerns Identified</h4>
+                <p>
+                    Topics reveal common consumer concerns including: <strong>Quality</strong>, <strong>Durability</strong>, 
+                    <strong>Fit/Compatibility</strong>, and <strong>Value for Money</strong>. These themes are extracted 
+                    from review text using BERTopic, which groups similar reviews based on semantic similarity.
+                </p>
+            </div>
+            <div class="chart-container">
+                <canvas id="topicDistributionChart"></canvas>
+            </div>
+            <div class="table-container">
+                <h3>Topic Details</h3>
+                <table id="topicsTable">
+                    <thead>
+                        <tr>
+                            <th>Topic ID</th>
+                            <th>Count</th>
+                            <th>Name</th>
+                            <th>Top Words</th>
+                            <th>Theme</th>
+                        </tr>
+                    </thead>
+                    <tbody id="topicsTableBody">
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Anomaly Detection -->
+        <section class="chart-section">
+            <h2>Behavioral Anomaly Detection</h2>
+            <div class="info-box">
+                <h4>Detecting Suspicious Reviews</h4>
+                <p>
+                    This section identifies potential fake or suspicious reviews through three key patterns:
+                    <strong>High-frequency reviewers</strong> (users with many reviews and zero rating variance),
+                    <strong>Extreme sentiment patterns</strong> (conflicted users with high ratings but low sentiment),
+                    and <strong>Repetitive text content</strong> (similar or duplicate review text).
+                </p>
+            </div>
+            <div class="tabs">
+                <button class="tab active" onclick="switchAnomalyTab('spammers')">High-Frequency Reviewers</button>
+                <button class="tab" onclick="switchAnomalyTab('conflicted')">Conflicted Users</button>
+                <button class="tab" onclick="switchAnomalyTab('repetitive')">Repetitive Content</button>
+            </div>
+            <div id="spammers-tab" class="tab-content active">
+                <div class="chart-container">
+                    <canvas id="spammerChart"></canvas>
+                </div>
+                <div class="table-container">
+                    <h3>Suspicious High-Frequency Reviewers</h3>
+                    <table id="spammersTable">
+                        <thead>
+                            <tr>
+                                <th>User ID</th>
+                                <th>Review Count</th>
+                                <th>Avg Rating</th>
+                                <th>Rating StdDev</th>
+                                <th>Product Count</th>
+                            </tr>
+                        </thead>
+                        <tbody id="spammersTableBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div id="conflicted-tab" class="tab-content">
+                <div class="chart-container">
+                    <canvas id="conflictedChart"></canvas>
+                </div>
+                <div class="table-container">
+                    <h3>Conflicted Users (High Rating, Low Sentiment)</h3>
+                    <table id="conflictedTable">
+                        <thead>
+                            <tr>
+                                <th>User ID</th>
+                                <th>Review Count</th>
+                                <th>Avg Rating</th>
+                                <th>Avg Sentiment</th>
+                                <th>Difference</th>
+                            </tr>
+                        </thead>
+                        <tbody id="conflictedTableBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div id="repetitive-tab" class="tab-content">
+                <div class="chart-container">
+                    <canvas id="repetitiveChart"></canvas>
+                </div>
+                <div class="table-container">
+                    <h3>Repetitive Text Detection</h3>
+                    <p style="color: #718096; margin-bottom: 15px;">Reviews with similar or duplicate text content (coming soon)</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Mismatched Reviews -->
+        <section class="chart-section">
+            <h2>Mismatched Reviews Analysis</h2>
+            <div class="chart-container">
+                <canvas id="mismatchDistributionChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <canvas id="sentimentConfidenceChart"></canvas>
+            </div>
+            <div class="table-container">
+                <h3>Sample Mismatched Reviews</h3>
+                <div class="search-box">
+                    <input type="text" id="reviewSearch" placeholder="Search reviews...">
+                </div>
+                <table id="reviewsTable">
+                    <thead>
+                        <tr>
+                            <th>Rating</th>
+                            <th>Sentiment</th>
+                            <th>Confidence</th>
+                            <th>Difference</th>
+                            <th>Review Text</th>
+                        </tr>
+                    </thead>
+                    <tbody id="reviewsTableBody">
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Macro Correlation -->
+        <section class="image-section">
+            <h2>Macro-Economic Correlation</h2>
+            <div class="image-container">
+                <img src="/static/macro_correlation_plot.png" 
+                     alt="Macro Correlation Plot" 
+                     onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                <p style="display:none;">Macro correlation plot not available</p>
+            </div>
+        </section>
+    </div>
+
+    <!-- Modal for Stat Details -->
+    <div id="statModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">Statistic Details</h3>
+                <span class="close" onclick="closeModal()">&times;</span>
+            </div>
+            <div id="modalBody"></div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</body>
+</html>
