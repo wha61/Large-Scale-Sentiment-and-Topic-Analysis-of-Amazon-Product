@@ -113,6 +113,7 @@ Use any of the names below as an argument for the downloader script (e.g., `pyth
 
 > **Warning:** Categories marked as **Large** or **Very Large** contain tens of millions of reviews. Processing them may take significantly longer and require more memory.
 
+
 #### 2. ETL & Inspection (`src/etl/`)
 * **`clean_data.py`**: The main ETL script. It cleans the raw data by filtering null texts, converting Unix timestamps to standard datetime objects, extracting `year`/`month` features, and calculating text length.
 * **`raw_data_checker.py`**: Utility to inspect the schema and sample rows of the raw downloaded data.
@@ -255,8 +256,9 @@ spark-submit src/analysis/detect_anomalous_users.py {category}
 
 * Macro-Economic Analysis Correlates sentiment trends with US Inflation rates (generates plot).
 ```
-python3 src/analysis/macro_correlation.py {category}
+python3 src/analysis/macro_correlation.py {category} --inflation_file {path/to/inflation.csv}
 ```
+Note : `inflation.csv` already load under `data/raw`
 
 * Consistency Check Calculates MAE and consistency between User Ratings (1-5) and Sentiment (1-5).
 ```
