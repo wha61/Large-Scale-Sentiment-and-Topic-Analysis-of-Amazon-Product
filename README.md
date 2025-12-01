@@ -117,7 +117,7 @@ Use any of the names below as an argument for the downloader script (e.g., `pyth
 #### 2. ETL & Inspection (`src/etl/`)
 * **`clean_data.py`**: The main ETL script. It cleans the raw data by filtering null texts, converting Unix timestamps to standard datetime objects, extracting `year`/`month` features, and calculating text length.
 * **`raw_data_checker.py`**: Utility to inspect the schema and sample rows of the raw downloaded data.
-* **`cleaned_allbeautyy_checker.py`**: Verifies the schema and data quality after the cleaning process.
+* **`cleaned_checker.py`**: Verifies the schema and data quality after the cleaning process.
 * **`sentiment_allbeauty_checker.py`**: Checks the final dataset after sentiment inference, calculating global metrics like MAE (Mean Absolute Error).
 
 #### 3. Sentiment Inference (`src/sentiment/`)
@@ -156,7 +156,7 @@ Before running the project, ensure you have the following software installed on 
 * **Java (JDK 8 or 11)**: Required by Apache Spark runtime.
     * Verify installation: `java -version`
 
-> **Note:** If you are running this on a cluster (e.g., AWS EMR, Databricks) or a university server, these tools are likely pre-installed.
+> **Note:** If you are running this on a cluster (e.g., AWS EMR, Databricks) or a university server, we using different way to install, please check [Prerequisites cluster support](#Cluster_Support)
 
 All dependencies have been stored in the requirements/txt file.
 Run command below to install all
@@ -181,6 +181,46 @@ pyarrow
 scikit-learn
 flask
 ```
+
+### Cluster Support
+Before submitting any Spark jobs on the cluster, you must prepare two essential archive files: the Python environment and the offline BERT model. This is necessary because worker nodes do not have internet access to download libraries or models at runtime.
+#### 1. Package Python Environment (venv-pack)
+Run these commands on the Gateway Node to create a portable environment containing all dependencies (PyTorch, Transformers, etc.).
+```
+# 1. Create a clean virtual environment (without pip to avoid system conflicts)
+python3 -m venv 732_AUV_project-env --without-pip
+source 732_AUV_project-env/bin/activate
+
+# 2. Install pip manually
+curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
+python get-pip.py
+rm get-pip.py
+
+# 3. Install dependencies
+pip install -r requirements.txt
+pip install venv-pack
+
+# 4. Pack the environment into a tarball
+# This generates '732_AUV_project_environment.tar.gz'
+venv-pack -o 732_AUV_project_environment.tar.gz
+```
+Note: `732_AUV_project_environment` is name we set, you can use any different name you want.
+
+#### 2. Package Offline BERT Model
+Worker nodes cannot connect to Hugging Face which is our data from. You must download the model locally on the Gateway and pack it.
+```
+# 1. Ensure your environment is activated
+source 732_AUV_project-env/bin/activate
+
+# 2. Download the model to a local folder 'bert_model'
+python -c "from transformers import pipeline; pipeline('text-classification', model='nlptown/bert-base-multilingual-uncased-sentiment').save_pretrained('bert_model')"
+
+# 3. Compress the model folder
+# This generates 'bert_model.tar.gz'
+tar -czf bert_model.tar.gz bert_model/
+```
+
+Note: After doing that, You should now have `732_AUV_project_environment.tar.gz` and `bert_model.tar.gz` in your project root. These will be distributed to workers via the --archives flag.
 
 ## Execution Pipeline
 ```text
@@ -213,13 +253,15 @@ graph TD
     (Topic Modeling `output/{category}_topic_mismatched_barchart.html`  &  `output/{category}_mismatched_topics.csv` )
 
 ```
+Note: Some code has been adapted to the cluster version. (Run `--cluster`), We conducted a test run based on the SFU cluster. Please refer to the following description for detailed runtime information.
 
 #### Phase 1: Data Preparation
-1. Download Raw Data Downloads the "#category" dataset from Hugging Face.
+##### 1. Download Raw Data Downloads the "#category" dataset from Hugging Face.
 ```
 python3 src/data/download_category.py {category}
 ```
-2. ETL & Cleaning Cleans the raw data, filters nulls, and formats timestamps.
+##### 2. ETL & Cleaning Cleans the raw data, filters nulls, and formats timestamps.
+###### Local Mode:
 
 * Input: ```data/raw/{category}_reviews```
 * Output: ```data/processed/{category}_clean```
@@ -227,19 +269,60 @@ python3 src/data/download_category.py {category}
 ```
 spark-submit src/etl/clean_data.py {category}
 ```
+
+###### Cluster Mode (Hadoop/YARN):
+* Input: ```data/raw/{category}_reviews```
+* Output(HDFS): ```data/processed/{category}_clean```
+```
+spark-submit \
+    --master yarn \
+    --deploy-mode cluster \
+    --archives 732_AUV_project_environment.tar.gz#environment \
+    --conf spark.pyspark.python=./environment/bin/python \
+    src/etl/clean_data.py All_Beauty --cluster
+```
+
 #### Phase 2: Sentiment Inference
 This step uses PySpark and BERT to generate sentiment scores. Choose one mode:
-
+ ##### Client Local Mode
 ```
 # Test Mode (Recommended for Debugging) Runs only on 1000 rows to verify the pipeline works quickly (< 2 mins).
 
-spark-submit src/sentiment/sentiment.py {category} --test
+spark-submit src/sentiment/sentiment_analysis.py {category} --test
 ```
 
 ```
 # Full Production Mode Runs on the entire dataset. This may take hours depending on your hardware.
 
-spark-submit src/sentiment/sentiment.py {category}
+spark-submit src/sentiment/sentiment_analysis.py {category}
+```
+
+
+ ##### Cluster Production Mode
+- Note: Requires uploading bert_model.tar.gz (Offline Model) to avoid internet access issues on worker nodes. see in [Prerequisites](#Prerequisites)
+
+```
+# Test Mode
+spark-submit \
+    --master yarn \
+    --deploy-mode cluster \
+    --num-executors 20 \
+    --executor-memory 8G \
+    --archives 732_AUV_project_environment.tar.gz#environment,bert_model.tar.gz#bert_model_files \
+    --conf spark.pyspark.python=./environment/bin/python \
+    src/sentiment/sentiment_analysis.py All_Beauty --cluster --test
+```
+
+```
+# Full Production Mode
+spark-submit \
+    --master yarn \
+    --deploy-mode cluster \
+    --num-executors 20 \
+    --executor-memory 8G \
+    --archives 732_AUV_project_environment.tar.gz#environment,bert_model.tar.gz#bert_model_files \
+    --conf spark.pyspark.python=./environment/bin/python \
+    src/sentiment/sentiment_analysis.py All_Beauty --cluster
 ```
 
 all mode will output data at
@@ -249,25 +332,52 @@ all mode will output data at
 #### Phase 3: Analytics & Visualization
 Once `Phase 2` is complete, run these scripts in any order to generate insights.
 
-* User Behavior Analysis Detects "Spammers" (high volume, zero variance) and "Conflicted Users" (high rating, low sentiment).
+##### User Behavior Analysis Detects "Spammers" (high volume, zero variance) and "Conflicted Users" (high rating, low sentiment).
 ```
 spark-submit src/analysis/detect_anomalous_users.py {category}
 ```
+###### Cluster
+```
+spark-submit \
+    --master yarn \
+    --deploy-mode cluster \
+    --archives 732_AUV_project_environment.tar.gz#environment \
+    --conf spark.pyspark.python=./environment/bin/python \
+    src/analysis/detect_anomalous_users.py All_Beauty --cluster
+```
 
-* Macro-Economic Analysis Correlates sentiment trends with US Inflation rates (generates plot).
+##### Macro-Economic Analysis Correlates sentiment trends with US Inflation rates (generates plot).
 ```
 python3 src/analysis/macro_correlation.py {category} --inflation_file {path/to/inflation.csv}
 ```
 Note : `inflation.csv` already load under `data/raw`
 
-* Consistency Check Calculates MAE and consistency between User Ratings (1-5) and Sentiment (1-5).
+##### Consistency Check Calculates MAE and consistency between User Ratings (1-5) and Sentiment (1-5).
 ```
 spark-submit src/analysis/rating_vs_sentiment.py {category}
 ```
+###### Cluster
+```
+spark-submit \
+    --master yarn \
+    --deploy-mode cluster \
+    --archives 732_AUV_project_environment.tar.gz#environment \
+    --conf spark.pyspark.python=./environment/bin/python \
+    src/analysis/rating_vs_sentiment.py All_Beauty --cluster
+```
 
-* Mismatch Extraction Identifies reviews where Rating and Sentiment differ significantly (e.g., 5-star rating but negative text).
+##### Mismatch Extraction Identifies reviews where Rating and Sentiment differ significantly (e.g., 5-star rating but negative text).
 ```
 spark-submit src/analysis/mismatched.py {category}
+```
+###### cluster
+```
+spark-submit \
+    --master yarn \
+    --deploy-mode cluster \
+    --archives 732_AUV_project_environment.tar.gz#environment \
+    --conf spark.pyspark.python=./environment/bin/python \
+    src/analysis/mismatched.py All_Beauty --cluster
 ```
 
 #### Phase 4: Advanced Topic Modeling
@@ -337,3 +447,7 @@ Press `Ctrl+C` in the terminal to stop the Flask server.
 * `spark-submit src/etl/cleaned_checker.py {category}` (Check ETL output)
 
 * `spark-submit src/etl/sentiment_checker.py {category}` (Check final model output & MAE)
+
+
+
+Note: Computers are like snowflakes — every setup is a little different. If anything in this repo doesn’t work as expected on your machine, please report it on this repository’s GitHub Issues page. We’re happy to help!
