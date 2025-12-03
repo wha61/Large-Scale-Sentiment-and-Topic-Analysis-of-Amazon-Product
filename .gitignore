@@ -3,6 +3,26 @@ output.txt
 *.crc
 venv/
 /venv
-/output
-*.parquet
 CHANGES_SUMMARY.md
+
+# Ignore parquet files (large data files)
+*.parquet
+
+# Ignore output directory by default, but allow CSV files
+/output
+!/output/**/*.csv
+!/output/**/_SUCCESS
+!/output/**/*.png
+!/output/**/*.html
+
+# Ignore processed data (contains large parquet files)
+/data/processed/
+
+# Ignore raw data files except inflation.csv
+/data/raw/All_Beauty_reviews
+!/data/raw/inflation.csv
+
+# Ignore Python cache
+__pycache__/
+*.pyc
+*.pyo
