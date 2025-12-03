@@ -36,6 +36,8 @@ async function loadAllData() {
         mismatchedData = await mismatchedResponse.json();
         renderMismatchedCharts();
         renderMismatchedTable(mismatchedData);
+        renderReviewExamples(mismatchedData);
+        setupCarouselHover();
 
         // Load topics
         const topicsResponse = await fetch('/api/topics');
@@ -148,12 +150,16 @@ function showStatDetails(type) {
             title = 'Mean Absolute Error (MAE)';
             content = `
                 <p><strong>Average MAE:</strong> ${stats.avg_mae?.toFixed(3) || '0.000'}</p>
-                <p><strong>Definition:</strong> MAE measures the average absolute difference between user ratings (1-5 stars) and AI-generated sentiment scores (1-5 stars).</p>
-                <p><strong>Interpretation:</strong></p>
-                <ul>
-                    <li>Lower MAE = Better alignment between human ratings and AI sentiment</li>
-                    <li>MAE of 0.5 means sentiment differs from rating by 0.5 stars on average</li>
-                    <li>This metric helps validate the accuracy of the sentiment analysis model</li>
+                <p style="margin-top: 15px;"><strong>Definition:</strong> MAE measures the average absolute difference between user ratings (1-5 stars) and AI-generated sentiment scores (1-5 stars).</p>
+                <p style="margin-top: 10px;"><strong>Formula:</strong> MAE = Average( |rating - sentiment_star| )</p>
+                <p style="margin-top: 10px;"><strong>Interpretation:</strong> A lower MAE indicates better alignment between human ratings and automated sentiment analysis. For example, an MAE of 0.5 means that on average, the sentiment score differs from the user rating by 0.5 stars.</p>
+                <p style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e1e8ed;"><strong>Reference Standards (1-5 star rating system):</strong></p>
+                <ul style="margin-top: 8px; padding-left: 20px; line-height: 1.8;">
+                    <li><strong>MAE &lt; 0.5:</strong> Excellent alignment - ratings and sentiment are highly consistent</li>
+                    <li><strong>MAE 0.5-1.0:</strong> Good alignment - minor differences, acceptable variance</li>
+                    <li><strong>MAE 1.0-2.0:</strong> Moderate differences - noticeable discrepancies exist</li>
+                    <li><strong>MAE 2.0-3.0:</strong> Significant differences - warrants further investigation</li>
+                    <li><strong>MAE ≥ 3.0:</strong> Severe mismatch - indicates potential fake reviews or model errors (project threshold)</li>
                 </ul>
             `;
             break;
@@ -1041,4 +1047,166 @@ function renderDataProcessingChart() {
             }
         }
     });
+}
+
+// Review Examples Carousel Functions
+let currentReviewIndex = 0;
+let totalReviews = 0;
+
+// Render review examples from actual data
+function renderReviewExamples(data) {
+    if (!data || data.length === 0) {
+        console.warn('No mismatched reviews data available');
+        return;
+    }
+    
+    // Take up to 20 reviews with highest mismatch
+    const topReviews = data
+        .filter(r => r.text && r.text.trim().length > 0) // Filter out empty reviews
+        .sort((a, b) => Math.abs(parseFloat(b.abs_diff || b.diff || 0)) - Math.abs(parseFloat(a.abs_diff || a.diff || 0)))
+        .slice(0, 20);
+    
+    totalReviews = topReviews.length;
+    
+    if (totalReviews === 0) {
+        console.warn('No valid reviews to display');
+        return;
+    }
+    
+    const carousel = document.getElementById('reviewCarousel');
+    const dotsContainer = document.getElementById('carouselDots');
+    
+    if (!carousel || !dotsContainer) {
+        console.error('Carousel elements not found');
+        return;
+    }
+    
+    // Clear existing content
+    carousel.innerHTML = '';
+    dotsContainer.innerHTML = '';
+    
+    // Generate review cards
+    topReviews.forEach((review, index) => {
+        const rating = parseInt(review.rating) || 0;
+        const sentiment = parseFloat(review.sentiment_star) || 0;
+        const absDiff = Math.abs(parseFloat(review.abs_diff || review.diff || 0));
+        const text = (review.text || '').trim();
+        
+        if (!text) return;
+        
+        // Create card
+        const card = document.createElement('div');
+        card.className = `review-example-card ${index === 0 ? 'active' : ''}`;
+        card.setAttribute('data-index', index);
+        
+        // Generate problem description
+        let problemText = '';
+        if (rating > sentiment) {
+            problemText = `User gave ${rating} stars but the text expresses ${sentiment < 2.5 ? 'negative' : sentiment < 3.5 ? 'neutral' : 'positive'} sentiment (${sentiment.toFixed(1)} stars). This mismatch indicates potential fake review or rating error.`;
+        } else if (rating < sentiment) {
+            problemText = `User gave ${rating} stars but the text expresses ${sentiment > 3.5 ? 'positive' : sentiment > 2.5 ? 'neutral' : 'negative'} sentiment (${sentiment.toFixed(1)} stars). Rating may not reflect actual product sentiment.`;
+        } else {
+            problemText = `Rating and sentiment are aligned, but this review was flagged for further analysis.`;
+        }
+        
+        // Escape HTML to prevent XSS
+        const escapeHtml = (str) => {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        };
+        
+        const escapedText = escapeHtml(text);
+        const escapedProblem = escapeHtml(problemText);
+        
+        card.innerHTML = `
+            <div class="review-header">
+                <div class="rating-display">
+                    <span class="user-rating">User Rating: <span class="rating-value">${rating}</span> ⭐</span>
+                    <span class="sentiment-rating">AI Sentiment: <span class="sentiment-value">${sentiment.toFixed(1)}</span> ⭐</span>
+                    <span class="mismatch-badge">Mismatch: ${absDiff.toFixed(1)} stars</span>
+                </div>
+            </div>
+            <div class="review-text">
+                <p class="review-quote"><strong>Review:</strong> "${escapedText}"</p>
+                <p class="review-analysis"><strong>Problem:</strong> ${escapedProblem}</p>
+            </div>
+        `;
+        
+        carousel.appendChild(card);
+        
+        // Create dot
+        const dot = document.createElement('span');
+        dot.className = `dot ${index === 0 ? 'active' : ''}`;
+        dot.setAttribute('onclick', `goToReviewExample(${index})`);
+        dotsContainer.appendChild(dot);
+    });
+    
+    // Initialize carousel
+    if (totalReviews > 0) {
+        goToReviewExample(0);
+        
+        // Restart auto-rotate
+        if (carouselInterval) {
+            clearInterval(carouselInterval);
+        }
+        carouselInterval = setInterval(() => {
+            changeReviewExample(1);
+        }, 30000);
+    }
+}
+
+function changeReviewExample(direction) {
+    if (totalReviews === 0) return;
+    const newIndex = (currentReviewIndex + direction + totalReviews) % totalReviews;
+    goToReviewExample(newIndex);
+}
+
+function goToReviewExample(index) {
+    // Remove active class from current card and dot
+    const currentCard = document.querySelector('.review-example-card.active');
+    const currentDot = document.querySelector('.dot.active');
+    
+    if (currentCard) {
+        currentCard.classList.remove('active');
+    }
+    if (currentDot) {
+        currentDot.classList.remove('active');
+    }
+    
+    // Add active class to new card and dot
+    const newCard = document.querySelector(`.review-example-card[data-index="${index}"]`);
+    const newDot = document.querySelector(`.dot:nth-child(${index + 1})`);
+    
+    if (newCard) {
+        newCard.classList.add('active');
+    }
+    if (newDot) {
+        newDot.classList.add('active');
+    }
+    
+    currentReviewIndex = index;
+}
+
+// Auto-rotate carousel every 5 seconds
+let carouselInterval;
+
+// Setup carousel hover pause (will be called after reviews are loaded)
+function setupCarouselHover() {
+    const carouselContainer = document.querySelector('.review-examples-container');
+    if (carouselContainer) {
+        carouselContainer.addEventListener('mouseenter', () => {
+            if (carouselInterval) {
+                clearInterval(carouselInterval);
+            }
+        });
+        
+        carouselContainer.addEventListener('mouseleave', () => {
+            if (totalReviews > 0) {
+                carouselInterval = setInterval(() => {
+                    changeReviewExample(1);
+                }, 30000);
+            }
+        });
+    }
 }

@@ -14,28 +14,32 @@ app = Flask(__name__)
 
 # Base paths
 BASE_DIR = Path(__file__).parent.parent.parent
-OUTPUT_DIR = BASE_DIR / "output"
+OUTPUT_DIR = BASE_DIR / "output-cz"  # Changed to output-cz directory
 
 def load_rating_vs_sentiment():
     """Load rating vs sentiment comparison data"""
-    csv_path = OUTPUT_DIR / "rating_vs_sentiment_all_beauty" / "part-00000-1e698bb6-ad4a-4c31-9434-6abe433d857c-c000.csv"
-    if csv_path.exists():
-        df = pd.read_csv(csv_path)
+    import glob
+    csv_pattern = str(OUTPUT_DIR / "All_Beauty_rating_vs_sentiment" / "part-*.csv")
+    csv_files = glob.glob(csv_pattern)
+    if csv_files:
+        df = pd.read_csv(csv_files[0])
         return df.to_dict('records')
     return []
 
 def load_mismatched_reviews():
     """Load mismatched reviews data"""
-    csv_path = OUTPUT_DIR / "mismatched_all_beauty_csv" / "part-00000-2cc212be-577a-47bf-bc96-2d512d869407-c000.csv"
-    if csv_path.exists():
-        df = pd.read_csv(csv_path)
+    import glob
+    csv_pattern = str(OUTPUT_DIR / "All_Beauty_mismatched_csv" / "part-*.csv")
+    csv_files = glob.glob(csv_pattern)
+    if csv_files:
+        df = pd.read_csv(csv_files[0])
         # Limit to first 100 for performance
         return df.head(100).to_dict('records')
     return []
 
 def load_topic_info():
     """Load topic modeling results"""
-    csv_path = OUTPUT_DIR / "mismatched_topics.csv"
+    csv_path = OUTPUT_DIR / "All_Beauty_mismatched_topics.csv"
     if csv_path.exists():
         df = pd.read_csv(csv_path)
         # Filter out outlier topic (-1)
@@ -88,7 +92,7 @@ def load_sentiment_data():
 def load_anomalous_users():
     """Load anomalous users data"""
     import glob
-    csv_pattern = str(OUTPUT_DIR / "suspicious_users_analysis" / "part-*.csv")
+    csv_pattern = str(OUTPUT_DIR / "All_Beauty_suspicious_users" / "part-*.csv")
     csv_files = glob.glob(csv_pattern)
     if csv_files:
         try:
@@ -311,9 +315,9 @@ def api_data_processing_stats():
 @app.route('/static/macro_correlation_plot.png')
 def serve_macro_plot():
     """Serve macro correlation plot image"""
-    plot_path = OUTPUT_DIR / "macro_correlation_plot.png"
+    plot_path = OUTPUT_DIR / "All_Beauty_macro_correlation_plot.png"
     if plot_path.exists():
-        return send_from_directory(str(OUTPUT_DIR), "macro_correlation_plot.png")
+        return send_from_directory(str(OUTPUT_DIR), "All_Beauty_macro_correlation_plot.png")
     return "Image not found", 404
 
 if __name__ == '__main__':

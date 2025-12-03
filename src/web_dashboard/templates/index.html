@@ -12,8 +12,36 @@
     <div class="container">
         <header>
             <h1>Amazon Reviews Analysis Dashboard</h1>
-            <p class="subtitle">Large-Scale Sentiment and Topic Analysis</p>
+            <p class="subtitle">Large-Scale Sentiment and Topic Analysis of Amazon Product Reviews</p>
         </header>
+
+        <!-- Problem Statement -->
+        <div class="hero-statement">
+            <div class="hero-content">
+                <h2 class="hero-question">Do you really trust reviews from Amazon?</h2>
+                <p class="hero-description">
+                    This dashboard analyzes Amazon product reviews to identify discrepancies between user ratings and 
+                    sentiment expressed in review text. We detect <strong>mismatched reviews</strong> where ratings 
+                    don't align with actual sentiment, helping identify potential fake or misleading reviews.
+                </p>
+            </div>
+            
+            <!-- Interactive Review Examples -->
+            <div class="review-examples-container">
+                <h3 class="examples-title">Real Examples of Mismatched Reviews</h3>
+                <div class="review-examples-carousel" id="reviewCarousel">
+                    <!-- Review cards will be dynamically generated here -->
+                </div>
+                
+                <div class="carousel-controls">
+                    <button class="carousel-btn prev-btn" onclick="changeReviewExample(-1)">← Previous</button>
+                    <div class="carousel-dots" id="carouselDots">
+                        <!-- Dots will be dynamically generated here -->
+                    </div>
+                    <button class="carousel-btn next-btn" onclick="changeReviewExample(1)">Next →</button>
+                </div>
+            </div>
+        </div>
 
         <!-- Statistics Overview -->
         <section class="stats-section">
@@ -40,23 +68,18 @@
                     <div class="stat-description">Mean Absolute Error: Average difference between user ratings and AI sentiment scores</div>
                 </div>
             </div>
-            
-            <!-- MAE Explanation -->
-            <div class="info-box">
-                <h4>About MAE (Mean Absolute Error)</h4>
-                <p>
-                    MAE measures the average absolute difference between user ratings (1-5 stars) and AI-generated sentiment scores (1-5 stars). 
-                    A lower MAE indicates better alignment between human ratings and automated sentiment analysis. 
-                    For example, an MAE of 0.5 means that on average, the sentiment score differs from the user rating by 0.5 stars.
-                </p>
-            </div>
         </section>
 
         <!-- Data Processing Scale Statistics -->
         <section class="chart-section">
             <h2>Data Processing Scale Statistics</h2>
             <div class="info-box">
-                <p>This panel shows the scale of data processing across different stages of the pipeline, highlighting the big data processing capabilities using Apache Spark.</p>
+                <p>
+                    This panel shows the scale of data processing across different stages of the pipeline: 
+                    <strong>Raw Data</strong> → <strong>Cleaned Data</strong> → <strong>Sentiment Analysis</strong>. 
+                    The pipeline uses Apache Spark for distributed big data processing, handling millions of 
+                    reviews efficiently.
+                </p>
             </div>
             
             <div class="stats-grid" id="processingStatsGrid">
@@ -218,10 +241,10 @@
             <div class="info-box">
                 <h4>Detecting Suspicious Reviews</h4>
                 <p>
-                    This section identifies potential fake or suspicious reviews through three key patterns:
-                    <strong>High-frequency reviewers</strong> (users with many reviews and zero rating variance),
+                    This section identifies potential <strong>fake or suspicious reviews</strong> through three key patterns:
+                    <strong>High-frequency reviewers</strong> (potential spammers with many reviews and zero rating variance),
                     <strong>Extreme sentiment patterns</strong> (conflicted users with high ratings but low sentiment),
-                    and <strong>Repetitive text content</strong> (similar or duplicate review text).
+                    and <strong>Repetitive text content</strong> (similar or duplicate review text indicating potential fraud).
                 </p>
             </div>
             <div class="tabs">
@@ -285,6 +308,18 @@
         <!-- Mismatched Reviews -->
         <section class="chart-section">
             <h2>Mismatched Reviews Analysis</h2>
+            <div class="info-box">
+                <h4>Core Problem: Rating vs Sentiment Mismatch</h4>
+                <p>
+                    This section identifies reviews where user ratings (1-5 stars) significantly differ from 
+                    AI-generated sentiment scores. These mismatches reveal potential issues such as:
+                    <strong>fake reviews</strong>, <strong>misleading ratings</strong>, or cases where users 
+                    express negative sentiment but give high ratings (or vice versa).
+                </p>
+                <p style="margin-top: 8px; font-style: italic; color: #4a5568;">
+                    Example: A review with "I've never eaten anything so awful" but rated 5 stars.
+                </p>
+            </div>
             <div class="chart-container">
                 <canvas id="mismatchDistributionChart"></canvas>
             </div>
@@ -315,6 +350,14 @@
         <!-- Macro Correlation -->
         <section class="image-section">
             <h2>Macro-Economic Correlation</h2>
+            <div class="info-box">
+                <h4>Macro-Level Analysis</h4>
+                <p>
+                    This visualization correlates aggregated consumer sentiment trends with external economic 
+                    indicators (US Inflation Rate from World Bank). It explores whether consumer emotions 
+                    expressed in product reviews show meaningful correlations with broader economic conditions.
+                </p>
+            </div>
             <div class="image-container">
                 <img src="/static/macro_correlation_plot.png" 
                      alt="Macro Correlation Plot" 
