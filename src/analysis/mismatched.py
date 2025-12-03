@@ -1,3 +1,5 @@
+# src/analysis/mismatched.py
+
 import sys
 import os
 import argparse
@@ -9,26 +11,29 @@ def get_analyzed_datasets(processed_dir="data/processed"):
     
     datasets = []
     for name in os.listdir(processed_dir):
-        
         if name.endswith("_sentiment"):
             clean_name = name.replace("_sentiment", "")
             datasets.append(clean_name)
     return sorted(list(set(datasets)))
 
 def main():
-    
     parser = argparse.ArgumentParser(description="Find mismatched reviews (Rating vs Sentiment) for a category.")
     parser.add_argument("category", nargs="?", help="The category name (e.g. All_Beauty).")
+
+    parser.add_argument("--cluster", action="store_true", help="Enable cluster mode (skips local path checks).")
+    
     args = parser.parse_args()
 
-    
     if not args.category:
+        if args.cluster:
+            print("[ERROR] In cluster mode, you MUST provide a category name.")
+            sys.exit(1)
+
         print("\n" + "!"*50)
         print("[ERROR] You must provide a category name!")
         print("!"*50)
         
         ready_datasets = get_analyzed_datasets()
-        
         if ready_datasets:
             print("\n[INFO] Found these datasets with SENTIMENT scores:")
             for cat in ready_datasets:
@@ -37,17 +42,11 @@ def main():
         else:
             print("\n[INFO] No sentiment datasets found in 'data/processed/'.")
             print("       Please run the sentiment analysis script first!")
-        
         sys.exit(1)
 
     category = args.category
-
-    
     input_path = f"data/processed/{category}_sentiment"
-    
-    
     output_dir_csv = f"output/{category}_mismatched_csv"
-    
     output_dir_parquet = f"data/processed/{category}_mismatched"
 
     print(f"[INFO] Category:        {category}")
@@ -55,13 +54,14 @@ def main():
     print(f"[INFO] Output CSV:      {output_dir_csv}")
     print(f"[INFO] Output Parquet:  {output_dir_parquet}")
 
-    
-    if not os.path.exists(input_path) and not os.path.exists(input_path + "/_SUCCESS"):
-        print(f"\n[ERROR] Input path not found: {input_path}")
-        print(f"        Have you run 'src/sentiment/sentiment_analysis.py {category}' yet?")
-        sys.exit(1)
+    if args.cluster:
+        print("[INFO] Cluster mode enabled: Skipping local path check.")
+    else:
+        if not os.path.exists(input_path) and not os.path.exists(input_path + "/_SUCCESS"):
+            print(f"\n[ERROR] Input path not found: {input_path}")
+            print(f"        Have you run 'src/sentiment/sentiment_analysis.py {category}' yet?")
+            sys.exit(1)
 
-    
     spark = (
         SparkSession.builder
         .appName(f"FindMismatchedReviews_{category}")
@@ -112,13 +112,11 @@ def main():
         "text"
     ).show(10, truncate=False)
 
-    
     top_k = 5000  
     top_mismatch = mismatched.limit(top_k)
 
     print(f"[INFO] Saving top {top_k} mismatched reviews...")
 
-    
     (
         top_mismatch
         .select("rating", "sentiment_star", "sentiment_conf", "diff", "abs_diff", "text")
@@ -129,7 +127,6 @@ def main():
         .csv(output_dir_csv)
     )
 
-    
     (
         top_mismatch
         .write

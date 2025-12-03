@@ -34,12 +34,14 @@ def main(category):
     
     
     
-    base_raw = f"data/raw/{category}_reviews"
-    if os.path.exists(base_raw):
-        raw_path = base_raw
-    else:
-        
-        raw_path = base_raw + ".parquet"
+    # base_raw = f"data/raw/{category}_reviews"
+    # if os.path.exists(base_raw):
+    #     raw_path = base_raw
+    # else:
+    #     raw_path = base_raw + ".parquet"
+    
+    # out_path = f"data/processed/{category}_clean"
+    raw_path = f"data/raw/{category}_reviews"
     
     out_path = f"data/processed/{category}_clean"
 
