@@ -12,6 +12,7 @@
 4. [Proposal](#Proposal)
 5. [Report](#Report)
 5. [Prerequisites](#Prerequisites)
+6. [Execution Pipeline](#execution-pipeline)
 
 
 ## Project Members
@@ -222,6 +223,7 @@ tar -czf bert_model.tar.gz bert_model/
 
 Note: After doing that, You should now have `732_AUV_project_environment.tar.gz` and `bert_model.tar.gz` in your project root. These will be distributed to workers via the --archives flag.
 
+<a id="execution-pipeline"></a>
 ## Execution Pipeline
 ```text
 graph TD
@@ -231,8 +233,8 @@ graph TD
     B -->|src/etl/clean_data.py| C 
     (Cleaned Data `data/processed/{category}_clean`) 
 
-    C -->|--test (Fast)| D[Test Mode: 1000 rows]
-    C -->|(Full Data)| E[Full Mode: All rows]
+    C -->||src/sentiment/sentiment_analysis.py|--test (Fast)| D[Test Mode: 1000 rows]
+    C -->||src/sentiment/sentiment_analysis.py| (Full Data)| E[Full Mode: All rows]
 
     E or D --> F 
     (Sentiment Data `data/processed/{category}_sentiment`)
