@@ -1,7 +1,7 @@
-/data
 /notebooks
 output.txt
 *.crc
 venv/
 /venv
 /output
+*.parquet
