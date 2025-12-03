@@ -5,3 +5,4 @@ venv/
 /venv
 /output
 *.parquet
+CHANGES_SUMMARY.md
