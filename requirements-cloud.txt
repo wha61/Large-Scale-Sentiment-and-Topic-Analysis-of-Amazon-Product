@@ -1,0 +1,4 @@
+flask
+pandas
+pyarrow
+numpy<2.0

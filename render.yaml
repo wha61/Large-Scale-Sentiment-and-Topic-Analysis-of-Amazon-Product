@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: amazon-reviews-dashboard
+    env: python
+    buildCommand: pip install -r requirements-cloud.txt
+    startCommand: cd src/web_dashboard && python app.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.0
+      - key: PORT
+        value: 5000
