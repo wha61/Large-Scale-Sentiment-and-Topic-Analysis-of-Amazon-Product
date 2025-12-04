@@ -15,8 +15,11 @@ CHANGES_SUMMARY.md
 !/output/**/*.png
 !/output/**/*.html
 
-# Ignore processed data (contains large parquet files)
+# Ignore processed data (contains large parquet files), but allow All_Beauty_sentiment
 /data/processed/
+!/data/processed/All_Beauty_sentiment/
+!/data/processed/All_Beauty_sentiment/**/*.parquet
+!/data/processed/All_Beauty_sentiment/**/_SUCCESS
 
 # Ignore raw data files except inflation.csv
 /data/raw/All_Beauty_reviews
