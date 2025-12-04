@@ -12,8 +12,36 @@
     <div class="container">
         <header>
             <h1>Amazon Reviews Analysis Dashboard</h1>
-            <p class="subtitle">Large-Scale Sentiment and Topic Analysis</p>
+            <p class="subtitle">Large-Scale Sentiment and Topic Analysis of Amazon Product Reviews</p>
         </header>
+
+        <!-- Problem Statement -->
+        <div class="hero-statement">
+            <div class="hero-content">
+                <h2 class="hero-question">Do you really trust reviews from Amazon?</h2>
+                <p class="hero-description">
+                    This dashboard analyzes Amazon product reviews to identify discrepancies between user ratings and 
+                    sentiment expressed in review text. We detect <strong>mismatched reviews</strong> where ratings 
+                    don't align with actual sentiment, helping identify potential fake or misleading reviews.
+                </p>
+            </div>
+            
+            <!-- Interactive Review Examples -->
+            <div class="review-examples-container">
+                <h3 class="examples-title">Real Examples of Mismatched Reviews</h3>
+                <div class="review-examples-carousel" id="reviewCarousel">
+                    <!-- Review cards will be dynamically generated here -->
+                </div>
+                
+                <div class="carousel-controls">
+                    <button class="carousel-btn prev-btn" onclick="changeReviewExample(-1)">← Previous</button>
+                    <div class="carousel-dots" id="carouselDots">
+                        <!-- Dots will be dynamically generated here -->
+                    </div>
+                    <button class="carousel-btn next-btn" onclick="changeReviewExample(1)">Next →</button>
+                </div>
+            </div>
+        </div>
 
         <!-- Statistics Overview -->
         <section class="stats-section">
@@ -29,69 +57,76 @@
                     <div class="stat-label">Mismatched Reviews</div>
                     <div class="stat-description">Reviews where user rating differs significantly from sentiment analysis</div>
                 </div>
-                <div class="stat-card" onclick="showStatDetails('topics')">
-                    <div class="stat-value" id="topicCount">-</div>
-                    <div class="stat-label">Topics Identified</div>
-                    <div class="stat-description">Number of distinct topics discovered through topic modeling</div>
-                </div>
                 <div class="stat-card" onclick="showStatDetails('mae')">
                     <div class="stat-value" id="avgMAE">-</div>
                     <div class="stat-label">Average MAE</div>
                     <div class="stat-description">Mean Absolute Error: Average difference between user ratings and AI sentiment scores</div>
                 </div>
             </div>
-            
-            <!-- MAE Explanation -->
+        </section>
+
+        <!-- Data Processing Scale Statistics -->
+        <section class="chart-section">
+            <h2>Data Processing Scale Statistics</h2>
             <div class="info-box">
-                <h4>About MAE (Mean Absolute Error)</h4>
                 <p>
-                    MAE measures the average absolute difference between user ratings (1-5 stars) and AI-generated sentiment scores (1-5 stars). 
-                    A lower MAE indicates better alignment between human ratings and automated sentiment analysis. 
-                    For example, an MAE of 0.5 means that on average, the sentiment score differs from the user rating by 0.5 stars.
+                    This panel shows the scale of data processing across different stages of the pipeline: 
+                    <strong>Raw Data</strong> → <strong>Cleaned Data</strong>. 
+                    The pipeline uses Apache Spark for distributed big data processing, handling millions of 
+                    reviews efficiently.
                 </p>
             </div>
-        </section>
+            
+            <div class="stats-grid" id="processingStatsGrid">
+                <div class="stat-card">
+                    <div class="stat-label">Raw Data</div>
+                    <div class="stat-value" id="rawCount">-</div>
+                    <div class="stat-description">Total records in raw dataset</div>
+                    <div class="stat-meta">
+                        <span>Size: <span id="rawSize">-</span> MB</span>
+                        <span>Partitions: <span id="rawPartitions">-</span></span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Cleaned Data</div>
+                    <div class="stat-value" id="cleanedCount">-</div>
+                    <div class="stat-description">Records after ETL processing</div>
+                    <div class="stat-meta">
+                        <span>Size: <span id="cleanedSize">-</span> MB</span>
+                        <span>Partitions: <span id="cleanedPartitions">-</span></span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Data Retention</div>
+                    <div class="stat-value" id="retentionRate">-</div>
+                    <div class="stat-description">Percentage of data retained after cleaning</div>
+                    <div class="stat-meta">
+                        <span>Reduction: <span id="dataReduction">-</span>%</span>
+                    </div>
+                </div>
+            </div>
 
-        <!-- Temporal Trends -->
-        <section class="chart-section">
-            <h2>Temporal Sentiment Trends</h2>
-            <div class="tabs">
-                <button class="tab active" onclick="switchTab('yearly')">Yearly Trends</button>
-                <button class="tab" onclick="switchTab('monthly')">Monthly Trends</button>
+            <div class="chart-container" style="margin-top: 30px;">
+                <canvas id="dataProcessingChart"></canvas>
             </div>
-            <div id="yearly-tab" class="tab-content active">
-                <div class="chart-container">
-                    <canvas id="yearlyTrendChart"></canvas>
-                </div>
-            </div>
-            <div id="monthly-tab" class="tab-content">
-                <div class="chart-container">
-                    <canvas id="monthlyTrendChart"></canvas>
-                </div>
-            </div>
-        </section>
 
-        <!-- Sentiment Distribution -->
-        <section class="chart-section">
-            <h2>Sentiment Distribution Analysis</h2>
-            <div class="tabs">
-                <button class="tab active" onclick="switchDistributionTab('product')">By Product</button>
-                <button class="tab" onclick="switchDistributionTab('category')">By Category</button>
-            </div>
-            <div id="product-dist-tab" class="tab-content active">
-                <div class="chart-container">
-                    <canvas id="productSentimentChart"></canvas>
+            <div class="stats-grid" style="margin-top: 30px;">
+                <div class="stat-card">
+                    <div class="stat-label">Spark Configuration</div>
+                    <div class="stat-description" style="text-align: left; padding: 10px;">
+                        <div><strong>App Name:</strong> <span id="sparkAppName">-</span></div>
+                        <div><strong>Spark Version:</strong> <span id="sparkVersion">-</span></div>
+                        <div><strong>Default Parallelism:</strong> <span id="sparkParallelism">-</span></div>
+                    </div>
                 </div>
-                <div class="info-box">
-                    <p>Top products by review volume. Sentiment scores aggregated per product (ASIN).</p>
-                </div>
-            </div>
-            <div id="category-dist-tab" class="tab-content">
-                <div class="chart-container">
-                    <canvas id="categorySentimentChart"></canvas>
-                </div>
-                <div class="info-box">
-                    <p>Sentiment distribution across product categories. Currently showing All Beauty category analysis.</p>
+                <div class="stat-card">
+                    <div class="stat-label">Data Quality Metrics</div>
+                    <div class="stat-description" style="text-align: left; padding: 10px;">
+                        <div><strong>Completeness:</strong> <span id="dataCompleteness">-</span>%</div>
+                        <div><strong>Null Text Fields:</strong> <span id="nullText">-</span></div>
+                        <div><strong>Null Ratings:</strong> <span id="nullRating">-</span></div>
+                        <div><strong>Null Sentiment:</strong> <span id="nullSentiment">-</span></div>
+                    </div>
                 </div>
             </div>
         </section>
@@ -110,121 +145,53 @@
             </div>
         </section>
 
-        <!-- Topic Modeling Results -->
-        <section class="chart-section">
-            <h2>Topic Modeling Results</h2>
-            <div class="info-box">
-                <h4>Common Concerns Identified</h4>
-                <p>
-                    Topics reveal common consumer concerns including: <strong>Quality</strong>, <strong>Durability</strong>, 
-                    <strong>Fit/Compatibility</strong>, and <strong>Value for Money</strong>. These themes are extracted 
-                    from review text using BERTopic, which groups similar reviews based on semantic similarity.
-                </p>
-            </div>
-            <div class="chart-container">
-                <canvas id="topicDistributionChart"></canvas>
-            </div>
-            <div class="table-container">
-                <h3>Topic Details</h3>
-                <table id="topicsTable">
-                    <thead>
-                        <tr>
-                            <th>Topic ID</th>
-                            <th>Count</th>
-                            <th>Name</th>
-                            <th>Top Words</th>
-                            <th>Theme</th>
-                        </tr>
-                    </thead>
-                    <tbody id="topicsTableBody">
-                    </tbody>
-                </table>
-            </div>
-        </section>
-
-        <!-- Anomaly Detection -->
-        <section class="chart-section">
-            <h2>Behavioral Anomaly Detection</h2>
-            <div class="info-box">
-                <h4>Detecting Suspicious Reviews</h4>
-                <p>
-                    This section identifies potential fake or suspicious reviews through three key patterns:
-                    <strong>High-frequency reviewers</strong> (users with many reviews and zero rating variance),
-                    <strong>Extreme sentiment patterns</strong> (conflicted users with high ratings but low sentiment),
-                    and <strong>Repetitive text content</strong> (similar or duplicate review text).
-                </p>
-            </div>
-            <div class="tabs">
-                <button class="tab active" onclick="switchAnomalyTab('spammers')">High-Frequency Reviewers</button>
-                <button class="tab" onclick="switchAnomalyTab('conflicted')">Conflicted Users</button>
-                <button class="tab" onclick="switchAnomalyTab('repetitive')">Repetitive Content</button>
-            </div>
-            <div id="spammers-tab" class="tab-content active">
-                <div class="chart-container">
-                    <canvas id="spammerChart"></canvas>
-                </div>
-                <div class="table-container">
-                    <h3>Suspicious High-Frequency Reviewers</h3>
-                    <table id="spammersTable">
-                        <thead>
-                            <tr>
-                                <th>User ID</th>
-                                <th>Review Count</th>
-                                <th>Avg Rating</th>
-                                <th>Rating StdDev</th>
-                                <th>Product Count</th>
-                            </tr>
-                        </thead>
-                        <tbody id="spammersTableBody">
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-            <div id="conflicted-tab" class="tab-content">
-                <div class="chart-container">
-                    <canvas id="conflictedChart"></canvas>
-                </div>
-                <div class="table-container">
-                    <h3>Conflicted Users (High Rating, Low Sentiment)</h3>
-                    <table id="conflictedTable">
-                        <thead>
-                            <tr>
-                                <th>User ID</th>
-                                <th>Review Count</th>
-                                <th>Avg Rating</th>
-                                <th>Avg Sentiment</th>
-                                <th>Difference</th>
-                            </tr>
-                        </thead>
-                        <tbody id="conflictedTableBody">
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-            <div id="repetitive-tab" class="tab-content">
-                <div class="chart-container">
-                    <canvas id="repetitiveChart"></canvas>
-                </div>
-                <div class="table-container">
-                    <h3>Repetitive Text Detection</h3>
-                    <p style="color: #718096; margin-bottom: 15px;">Reviews with similar or duplicate text content (coming soon)</p>
-                </div>
-            </div>
-        </section>
-
         <!-- Mismatched Reviews -->
         <section class="chart-section">
             <h2>Mismatched Reviews Analysis</h2>
+            <div class="info-box">
+                <h4>Core Problem: Rating vs Sentiment Mismatch</h4>
+                <p>
+                    This section identifies reviews where user ratings (1-5 stars) significantly differ from 
+                    AI-generated sentiment scores. These mismatches reveal potential issues such as:
+                    <strong>fake reviews</strong>, <strong>misleading ratings</strong>, or cases where users 
+                    express negative sentiment but give high ratings (or vice versa).
+                </p>
+                <p style="margin-top: 8px; font-style: italic; color: #4a5568;">
+                    Example: A review with "I've never eaten anything so awful" but rated 5 stars.
+                </p>
+            </div>
             <div class="chart-container">
                 <canvas id="mismatchDistributionChart"></canvas>
             </div>
-            <div class="chart-container">
-                <canvas id="sentimentConfidenceChart"></canvas>
+            <div class="info-box" style="margin-top: 20px; margin-bottom: 20px;">
+                <h4>Understanding Sentiment Confidence</h4>
+                <p>
+                    The sentiment analysis uses the <strong>nlptown/bert-base-multilingual-uncased-sentiment</strong> model, 
+                    which outputs two values for each review:
+                </p>
+                <ul style="margin-top: 10px; margin-bottom: 10px; padding-left: 25px; line-height: 1.8;">
+                    <li><strong>sentiment_star</strong>: Sentiment score on a 1-5 star scale</li>
+                    <li><strong>sentiment_conf</strong>: Confidence score ranging from 0.0 to 1.0</li>
+                </ul>
+                <p style="margin-top: 10px;">
+                    The confidence score represents the model's certainty in its prediction. Higher values indicate 
+                    greater confidence:
+                </p>
+                <ul style="margin-top: 10px; margin-bottom: 10px; padding-left: 25px; line-height: 1.8;">
+                    <li><strong>0.8-1.0</strong>: High confidence - model is very certain</li>
+                    <li><strong>0.6-0.8</strong>: Moderate confidence - reasonably certain</li>
+                    <li><strong>0.4-0.6</strong>: Low confidence - somewhat uncertain</li>
+                    <li><strong>0.0-0.4</strong>: Very low confidence - model is uncertain</li>
+                </ul>
+                <p style="margin-top: 10px; font-size: 0.9em; color: #718096;">
+                    The confidence score helps identify reviews where the sentiment prediction may be less reliable, 
+                    particularly useful when analyzing mismatched reviews.
+                </p>
             </div>
             <div class="table-container">
                 <h3>Sample Mismatched Reviews</h3>
                 <div class="search-box">
-                    <input type="text" id="reviewSearch" placeholder="Search reviews...">
+                    <input type="text" id="reviewSearch" placeholder="Search by rating, sentiment, difference, or review text...">
                 </div>
                 <table id="reviewsTable">
                     <thead>
@@ -245,11 +212,37 @@
         <!-- Macro Correlation -->
         <section class="image-section">
             <h2>Macro-Economic Correlation</h2>
-            <div class="image-container">
-                <img src="/static/macro_correlation_plot.png" 
-                     alt="Macro Correlation Plot" 
-                     onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
-                <p style="display:none;">Macro correlation plot not available</p>
+            <div class="info-box">
+                <h4>Macro-Level Analysis</h4>
+                <p>
+                    This visualization correlates aggregated consumer sentiment trends with external economic 
+                    indicators (US Inflation Rate from World Bank). It explores whether consumer emotions 
+                    expressed in product reviews show meaningful correlations with broader economic conditions.
+                </p>
+            </div>
+        </section>
+
+        <!-- Temporal Trends -->
+        <section class="chart-section">
+            <h2>Sentiment, Rating, and Inflation Trends</h2>
+            <div class="chart-container">
+                <canvas id="yearlyTrendChart"></canvas>
+            </div>
+            <div class="table-container" style="margin-top: 30px;">
+                <h3>Yearly Statistics: Sentiment, Rating, and Inflation</h3>
+                <table id="yearlyStatsTable">
+                    <thead>
+                        <tr>
+                            <th>Year</th>
+                            <th>Average Sentiment</th>
+                            <th>Average Rating</th>
+                            <th>Inflation Rate (%)</th>
+                            <th>Review Count</th>
+                        </tr>
+                    </thead>
+                    <tbody id="yearlyStatsTableBody">
+                    </tbody>
+                </table>
             </div>
         </section>
     </div>

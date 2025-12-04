@@ -3,19 +3,36 @@
 // Global variables
 let ratingData = [];
 let mismatchedData = [];
-let topicData = [];
 let stats = {};
 let temporalData = {};
-let distributionData = {};
-let anomalousUsers = [];
+let dataProcessingStats = {};
 
 // Chart instances
 let charts = {};
 
 // Initialize dashboard
 document.addEventListener('DOMContentLoaded', function() {
+    showLoadingState();
     loadAllData();
 });
+
+// Show loading state
+function showLoadingState() {
+    const container = document.querySelector('.container');
+    if (container) {
+        container.style.opacity = '0.6';
+        container.style.pointerEvents = 'none';
+    }
+}
+
+// Hide loading state
+function hideLoadingState() {
+    const container = document.querySelector('.container');
+    if (container) {
+        container.style.opacity = '1';
+        container.style.pointerEvents = 'auto';
+    }
+}
 
 // Load all data from API
 async function loadAllData() {
@@ -35,12 +52,8 @@ async function loadAllData() {
         mismatchedData = await mismatchedResponse.json();
         renderMismatchedCharts();
         renderMismatchedTable(mismatchedData);
-
-        // Load topics
-        const topicsResponse = await fetch('/api/topics');
-        topicData = await topicsResponse.json();
-        renderTopicCharts();
-        renderTopicsTable(topicData);
+        renderReviewExamples(mismatchedData);
+        setupCarouselHover();
 
         // Load temporal trends
         try {
@@ -51,36 +64,53 @@ async function loadAllData() {
             console.warn('Temporal data not available:', e);
         }
 
-        // Load distribution data
+        // Load data processing statistics
         try {
-            const distResponse = await fetch('/api/sentiment-distribution');
-            distributionData = await distResponse.json();
-            renderDistributionCharts();
+            const processingStatsResponse = await fetch('/api/data-processing-stats');
+            if (!processingStatsResponse.ok) {
+                console.error('Failed to load data processing stats:', processingStatsResponse.status);
+                const errorData = await processingStatsResponse.json();
+                console.error('Error details:', errorData);
+            } else {
+                dataProcessingStats = await processingStatsResponse.json();
+                console.log('Data processing stats loaded:', dataProcessingStats);
+                renderDataProcessingStats();
+            }
         } catch (e) {
-            console.warn('Distribution data not available:', e);
-        }
-
-        // Load anomalous users
-        try {
-            const anomalyResponse = await fetch('/api/anomalous-users');
-            anomalousUsers = await anomalyResponse.json();
-            renderAnomalyCharts();
-        } catch (e) {
-            console.warn('Anomaly data not available:', e);
+            console.error('Error loading data processing stats:', e);
         }
 
     } catch (error) {
         console.error('Error loading data:', error);
-        document.body.innerHTML = '<div class="loading">Error loading data. Please check if the server is running and data files exist.</div>';
+        hideLoadingState();
+        showError('Failed to load data. Please check if the server is running and data files exist.', error);
+    } finally {
+        hideLoadingState();
     }
 }
 
-// Update statistics cards
+// Show error message
+function showError(message, error = null) {
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'error-message';
+    errorDiv.style.cssText = 'background: #fee; border: 1px solid #fcc; color: #c33; padding: 15px; margin: 20px; border-radius: 6px;';
+    errorDiv.innerHTML = `
+        <strong>Error:</strong> ${message}
+        ${error ? `<br><small>${error.message || error}</small>` : ''}
+    `;
+    document.querySelector('.container').insertBefore(errorDiv, document.querySelector('.container').firstChild);
+}
+
+// Update statistics cards with consistent formatting
 function updateStats() {
-    document.getElementById('totalRatings').textContent = stats.total_ratings?.toLocaleString() || '0';
-    document.getElementById('mismatchedCount').textContent = stats.mismatched_count?.toLocaleString() || '0';
-    document.getElementById('topicCount').textContent = stats.topic_count || '0';
-    document.getElementById('avgMAE').textContent = stats.avg_mae?.toFixed(3) || '0.000';
+    const formatNumber = (num) => {
+        if (num === null || num === undefined) return '0';
+        return typeof num === 'number' ? num.toLocaleString() : num;
+    };
+    
+    document.getElementById('totalRatings').textContent = formatNumber(stats.total_ratings);
+    document.getElementById('mismatchedCount').textContent = formatNumber(stats.mismatched_count);
+    document.getElementById('avgMAE').textContent = stats.avg_mae ? stats.avg_mae.toFixed(3) : '0.000';
 }
 
 // Show stat details modal
@@ -119,24 +149,20 @@ function showStatDetails(type) {
                 </ul>
             `;
             break;
-        case 'topics':
-            title = 'Topics Identified';
-            content = `
-                <p><strong>Topics Found:</strong> ${stats.topic_count || '0'}</p>
-                <p>Topic modeling using BERTopic has identified distinct themes in the review data.</p>
-                <p>Common topics include concerns about quality, durability, fit, and value for money.</p>
-            `;
-            break;
         case 'mae':
             title = 'Mean Absolute Error (MAE)';
             content = `
                 <p><strong>Average MAE:</strong> ${stats.avg_mae?.toFixed(3) || '0.000'}</p>
-                <p><strong>Definition:</strong> MAE measures the average absolute difference between user ratings (1-5 stars) and AI-generated sentiment scores (1-5 stars).</p>
-                <p><strong>Interpretation:</strong></p>
-                <ul>
-                    <li>Lower MAE = Better alignment between human ratings and AI sentiment</li>
-                    <li>MAE of 0.5 means sentiment differs from rating by 0.5 stars on average</li>
-                    <li>This metric helps validate the accuracy of the sentiment analysis model</li>
+                <p style="margin-top: 15px;"><strong>Definition:</strong> MAE measures the average absolute difference between user ratings (1-5 stars) and AI-generated sentiment scores (1-5 stars).</p>
+                <p style="margin-top: 10px;"><strong>Formula:</strong> MAE = Average( |rating - sentiment_star| )</p>
+                <p style="margin-top: 10px;"><strong>Interpretation:</strong> A lower MAE indicates better alignment between human ratings and automated sentiment analysis. For example, an MAE of 0.5 means that on average, the sentiment score differs from the user rating by 0.5 stars.</p>
+                <p style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e1e8ed;"><strong>Reference Standards (1-5 star rating system):</strong></p>
+                <ul style="margin-top: 8px; padding-left: 20px; line-height: 1.8;">
+                    <li><strong>MAE &lt; 0.5:</strong> Excellent alignment - ratings and sentiment are highly consistent</li>
+                    <li><strong>MAE 0.5-1.0:</strong> Good alignment - minor differences, acceptable variance</li>
+                    <li><strong>MAE 1.0-2.0:</strong> Moderate differences - noticeable discrepancies exist</li>
+                    <li><strong>MAE 2.0-3.0:</strong> Significant differences - warrants further investigation</li>
+                    <li><strong>MAE ≥ 3.0:</strong> Severe mismatch - indicates potential fake reviews or model errors (project threshold)</li>
                 </ul>
             `;
             break;
@@ -162,56 +188,10 @@ window.onclick = function(event) {
 }
 
 // Tab switching functions
-function switchTab(tabName) {
-    document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
-    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-    
-    event.target.classList.add('active');
-    document.getElementById(tabName + '-tab').classList.add('active');
-    
-    if (tabName === 'yearly') {
-        renderYearlyChart();
-    } else if (tabName === 'monthly') {
-        renderMonthlyChart();
-    }
-}
-
-function switchDistributionTab(tabName) {
-    document.querySelectorAll('.tab').forEach(tab => {
-        if (tab.closest('.chart-section').querySelector('h2').textContent === 'Sentiment Distribution Analysis') {
-            tab.classList.remove('active');
-        }
-    });
-    document.querySelectorAll('.tab-content').forEach(content => {
-        if (content.id.includes('dist-tab')) {
-            content.classList.remove('active');
-        }
-    });
-    
-    event.target.classList.add('active');
-    document.getElementById(tabName + '-dist-tab').classList.add('active');
-}
-
-function switchAnomalyTab(tabName) {
-    document.querySelectorAll('.tab').forEach(tab => {
-        if (tab.closest('.chart-section').querySelector('h2').textContent === 'Behavioral Anomaly Detection') {
-            tab.classList.remove('active');
-        }
-    });
-    document.querySelectorAll('.tab-content').forEach(content => {
-        if (content.id.includes('-tab') && !content.id.includes('dist-tab')) {
-            content.classList.remove('active');
-        }
-    });
-    
-    event.target.classList.add('active');
-    document.getElementById(tabName + '-tab').classList.add('active');
-}
-
 // Render temporal trend charts
 function renderTemporalCharts() {
     renderYearlyChart();
-    renderMonthlyChart();
+    renderYearlyTable();
 }
 
 function renderYearlyChart() {
@@ -220,7 +200,7 @@ function renderYearlyChart() {
     
     if (charts.yearly) charts.yearly.destroy();
     
-    const data = temporalData.yearly;
+    const data = temporalData.yearly.filter(d => d.year); // Filter out null years
     charts.yearly = new Chart(ctx, {
         type: 'line',
         data: {
@@ -232,7 +212,8 @@ function renderYearlyChart() {
                 backgroundColor: 'rgba(66, 153, 225, 0.1)',
                 borderWidth: 2,
                 fill: true,
-                tension: 0.4
+                tension: 0.4,
+                yAxisID: 'y'
             }, {
                 label: 'Average Rating',
                 data: data.map(d => d.avg_rating),
@@ -240,48 +221,20 @@ function renderYearlyChart() {
                 backgroundColor: 'rgba(237, 137, 54, 0.1)',
                 borderWidth: 2,
                 fill: true,
-                tension: 0.4
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            plugins: {
-                title: {
-                    display: true,
-                    text: 'Yearly Sentiment and Rating Trends'
-                }
-            },
-            scales: {
-                y: {
-                    beginAtZero: false,
-                    min: 1,
-                    max: 5
-                }
-            }
-        }
-    });
-}
-
-function renderMonthlyChart() {
-    const ctx = document.getElementById('monthlyTrendChart');
-    if (!ctx || !temporalData.monthly || temporalData.monthly.length === 0) return;
-    
-    if (charts.monthly) charts.monthly.destroy();
-    
-    const data = temporalData.monthly;
-    charts.monthly = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: data.map(d => `${d.year}-${String(d.month).padStart(2, '0')}`),
-            datasets: [{
-                label: 'Average Sentiment',
-                data: data.map(d => d.avg_sentiment),
-                borderColor: 'rgba(66, 153, 225, 1)',
-                backgroundColor: 'rgba(66, 153, 225, 0.1)',
+                tension: 0.4,
+                yAxisID: 'y'
+            }, {
+                label: 'Inflation Rate (%)',
+                data: data.map(d => d.inflation_rate !== null && d.inflation_rate !== undefined ? d.inflation_rate : null),
+                borderColor: 'rgba(239, 68, 68, 1)',
+                backgroundColor: 'rgba(239, 68, 68, 0.1)',
                 borderWidth: 2,
-                fill: true,
-                tension: 0.4
+                borderDash: [5, 5],
+                fill: false,
+                tension: 0.4,
+                yAxisID: 'y1',
+                pointStyle: 'cross',
+                pointRadius: 4
             }]
         },
         options: {
@@ -290,19 +243,33 @@ function renderMonthlyChart() {
             plugins: {
                 title: {
                     display: true,
-                    text: 'Monthly Sentiment Trends'
+                    text: 'Yearly Sentiment, Rating, and Inflation Trends'
                 }
             },
             scales: {
                 y: {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
                     beginAtZero: false,
-                    min: 1,
-                    max: 5
+                    min: 3.5,
+                    max: 5,
+                    title: {
+                        display: true,
+                        text: 'Sentiment / Rating (1-5)'
+                    }
                 },
-                x: {
-                    ticks: {
-                        maxRotation: 45,
-                        minRotation: 45
+                y1: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Inflation Rate (%)'
+                    },
+                    grid: {
+                        drawOnChartArea: false
                     }
                 }
             }
@@ -310,224 +277,24 @@ function renderMonthlyChart() {
     });
 }
 
+function renderYearlyTable() {
+    const tbody = document.getElementById('yearlyStatsTableBody');
+    if (!tbody || !temporalData.yearly || temporalData.yearly.length === 0) return;
+    
+    tbody.innerHTML = '';
+    
+    temporalData.yearly.forEach(d => {
+        const row = tbody.insertRow();
+        row.insertCell(0).textContent = d.year || 'N/A';
+        row.insertCell(1).textContent = d.avg_sentiment ? d.avg_sentiment.toFixed(2) : 'N/A';
+        row.insertCell(2).textContent = d.avg_rating ? d.avg_rating.toFixed(2) : 'N/A';
+        row.insertCell(3).textContent = d.inflation_rate !== null && d.inflation_rate !== undefined ? d.inflation_rate.toFixed(2) + '%' : 'N/A';
+        row.insertCell(4).textContent = d.count ? d.count.toLocaleString() : '0';
+    });
+}
+
 // Render distribution charts
-function renderDistributionCharts() {
-    renderProductChart();
-    renderCategoryChart();
-}
-
-function renderProductChart() {
-    const ctx = document.getElementById('productSentimentChart');
-    if (!ctx || !distributionData.product || distributionData.product.length === 0) return;
-    
-    if (charts.product) charts.product.destroy();
-    
-    const data = distributionData.product.slice(0, 15); // Top 15
-    charts.product = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: data.map(d => d.asin.substring(0, 12) + '...'),
-            datasets: [{
-                label: 'Average Sentiment',
-                data: data.map(d => d.avg_sentiment),
-                backgroundColor: 'rgba(66, 153, 225, 0.6)',
-                borderColor: 'rgba(66, 153, 225, 1)',
-                borderWidth: 1
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            plugins: {
-                title: {
-                    display: true,
-                    text: 'Sentiment Distribution by Product (Top 15)'
-                },
-                legend: {
-                    display: false
-                }
-            },
-            scales: {
-                y: {
-                    beginAtZero: false,
-                    min: 1,
-                    max: 5
-                }
-            }
-        }
-    });
-}
-
-function renderCategoryChart() {
-    const ctx = document.getElementById('categorySentimentChart');
-    if (!ctx || !distributionData.category || distributionData.category.length === 0) return;
-    
-    if (charts.category) charts.category.destroy();
-    
-    charts.category = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: distributionData.category.map(d => d.category),
-            datasets: [{
-                label: 'Average Sentiment',
-                data: distributionData.category.map(d => d.avg_sentiment),
-                backgroundColor: 'rgba(102, 126, 234, 0.6)',
-                borderColor: 'rgba(102, 126, 234, 1)',
-                borderWidth: 1
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            plugins: {
-                title: {
-                    display: true,
-                    text: 'Sentiment Distribution by Category'
-                },
-                legend: {
-                    display: false
-                }
-            },
-            scales: {
-                y: {
-                    beginAtZero: false,
-                    min: 1,
-                    max: 5
-                }
-            }
-        }
-    });
-}
-
 // Render anomaly detection charts
-function renderAnomalyCharts() {
-    renderSpammerChart();
-    renderConflictedChart();
-    renderAnomalyTables();
-}
-
-function renderSpammerChart() {
-    const ctx = document.getElementById('spammerChart');
-    if (!ctx || !anomalousUsers || anomalousUsers.length === 0) return;
-    
-    const spammers = anomalousUsers.filter(u => u.reason && u.reason.includes('Spammer'));
-    
-    if (charts.spammer) charts.spammer.destroy();
-    
-    charts.spammer = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: spammers.slice(0, 10).map(u => u.user_id.substring(0, 10) + '...'),
-            datasets: [{
-                label: 'Review Count',
-                data: spammers.slice(0, 10).map(u => u.review_count),
-                backgroundColor: 'rgba(239, 68, 68, 0.6)',
-                borderColor: 'rgba(239, 68, 68, 1)',
-                borderWidth: 1
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            plugins: {
-                title: {
-                    display: true,
-                    text: 'High-Frequency Reviewers (Potential Spammers)'
-                },
-                legend: {
-                    display: false
-                }
-            }
-        }
-    });
-}
-
-function renderConflictedChart() {
-    const ctx = document.getElementById('conflictedChart');
-    if (!ctx || !anomalousUsers || anomalousUsers.length === 0) return;
-    
-    const conflicted = anomalousUsers.filter(u => u.reason && u.reason.includes('Conflicted'));
-    
-    if (charts.conflicted) charts.conflicted.destroy();
-    
-    charts.conflicted = new Chart(ctx, {
-        type: 'scatter',
-        data: {
-            datasets: [{
-                label: 'Conflicted Users',
-                data: conflicted.slice(0, 20).map(u => ({
-                    x: u.avg_rating,
-                    y: u.avg_sentiment
-                })),
-                backgroundColor: 'rgba(245, 158, 11, 0.6)',
-                borderColor: 'rgba(245, 158, 11, 1)',
-                borderWidth: 1
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            plugins: {
-                title: {
-                    display: true,
-                    text: 'Conflicted Users: High Rating vs Low Sentiment'
-                }
-            },
-            scales: {
-                x: {
-                    title: {
-                        display: true,
-                        text: 'Average Rating'
-                    },
-                    min: 1,
-                    max: 5
-                },
-                y: {
-                    title: {
-                        display: true,
-                        text: 'Average Sentiment'
-                    },
-                    min: 1,
-                    max: 5
-                }
-            }
-        }
-    });
-}
-
-function renderAnomalyTables() {
-    const spammers = anomalousUsers.filter(u => u.reason && u.reason.includes('Spammer'));
-    const conflicted = anomalousUsers.filter(u => u.reason && u.reason.includes('Conflicted'));
-    
-    // Spammers table
-    const spammersTbody = document.getElementById('spammersTableBody');
-    if (spammersTbody) {
-        spammersTbody.innerHTML = '';
-        spammers.slice(0, 20).forEach(user => {
-            const row = spammersTbody.insertRow();
-            row.insertCell(0).textContent = user.user_id?.substring(0, 15) + '...' || 'N/A';
-            row.insertCell(1).textContent = user.review_count || '0';
-            row.insertCell(2).textContent = (user.avg_rating || 0).toFixed(2);
-            row.insertCell(3).textContent = (user.rating_stddev || 0).toFixed(3);
-            row.insertCell(4).textContent = user.product_count || '0';
-        });
-    }
-    
-    // Conflicted table
-    const conflictedTbody = document.getElementById('conflictedTableBody');
-    if (conflictedTbody) {
-        conflictedTbody.innerHTML = '';
-        conflicted.slice(0, 20).forEach(user => {
-            const row = conflictedTbody.insertRow();
-            row.insertCell(0).textContent = user.user_id?.substring(0, 15) + '...' || 'N/A';
-            row.insertCell(1).textContent = user.review_count || '0';
-            row.insertCell(2).textContent = (user.avg_rating || 0).toFixed(2);
-            row.insertCell(3).textContent = (user.avg_sentiment || 0).toFixed(2);
-            row.insertCell(4).textContent = ((user.avg_rating || 0) - (user.avg_sentiment || 0)).toFixed(2);
-        });
-    }
-}
-
 // Render rating vs sentiment charts
 function renderRatingCharts() {
     // Chart 1: Rating vs Average Sentiment
@@ -636,42 +403,6 @@ function renderRatingCharts() {
 }
 
 // Render topic modeling charts
-function renderTopicCharts() {
-    const ctx = document.getElementById('topicDistributionChart').getContext('2d');
-    if (charts.topicDist) charts.topicDist.destroy();
-    charts.topicDist = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: topicData.map(d => `Topic ${d.Topic}`),
-            datasets: [{
-                label: 'Number of Reviews',
-                data: topicData.map(d => d.Count),
-                backgroundColor: 'rgba(66, 153, 225, 0.6)',
-                borderColor: 'rgba(66, 153, 225, 1)',
-                borderWidth: 2
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            plugins: {
-                title: {
-                    display: true,
-                    text: 'Topic Distribution'
-                },
-                legend: {
-                    display: false
-                }
-            },
-            scales: {
-                y: {
-                    beginAtZero: true
-                }
-            }
-        }
-    });
-}
-
 // Render mismatched reviews charts
 function renderMismatchedCharts() {
     // Chart 1: Mismatch Distribution
@@ -714,42 +445,268 @@ function renderMismatchedCharts() {
             }
         }
     });
+}
 
-    // Chart 2: Sentiment Confidence Distribution
-    const confidenceRanges = {
-        '0.0-0.2': 0,
-        '0.2-0.4': 0,
-        '0.4-0.6': 0,
-        '0.6-0.8': 0,
-        '0.8-1.0': 0
-    };
+// Render topics table with theme classification
+// Render mismatched reviews table with enhanced features
+let allTableData = [];
+let currentSortColumn = null;
+let currentSortDirection = 'asc';
 
-    mismatchedData.forEach(d => {
-        const conf = d.sentiment_conf;
-        if (conf < 0.2) confidenceRanges['0.0-0.2']++;
-        else if (conf < 0.4) confidenceRanges['0.2-0.4']++;
-        else if (conf < 0.6) confidenceRanges['0.4-0.6']++;
-        else if (conf < 0.8) confidenceRanges['0.6-0.8']++;
-        else confidenceRanges['0.8-1.0']++;
+function renderMismatchedTable(data) {
+    allTableData = data;
+    const tbody = document.getElementById('reviewsTableBody');
+    tbody.innerHTML = '';
+
+    data.forEach((review, index) => {
+        const row = tbody.insertRow();
+        row.setAttribute('data-index', index);
+        
+        // Rating cell
+        const ratingCell = row.insertCell(0);
+        ratingCell.textContent = review.rating;
+        ratingCell.setAttribute('data-value', review.rating);
+        
+        // Sentiment cell
+        const sentimentCell = row.insertCell(1);
+        sentimentCell.textContent = review.sentiment_star;
+        sentimentCell.setAttribute('data-value', review.sentiment_star);
+        
+        // Confidence cell
+        const confCell = row.insertCell(2);
+        const conf = parseFloat(review.sentiment_conf);
+        confCell.textContent = conf.toFixed(3);
+        confCell.setAttribute('data-value', conf);
+        if (conf < 0.4) confCell.className = 'badge badge-low';
+        else if (conf < 0.7) confCell.className = 'badge badge-medium';
+        else confCell.className = 'badge badge-high';
+        
+        // Difference cell
+        const diffCell = row.insertCell(3);
+        const diff = parseFloat(review.diff || review.abs_diff || 0);
+        diffCell.textContent = diff.toFixed(1);
+        diffCell.setAttribute('data-value', Math.abs(diff));
+        
+        // Text cell
+        const textCell = row.insertCell(4);
+        textCell.className = 'review-text';
+        textCell.textContent = review.text || 'N/A';
     });
 
-    const ctx2 = document.getElementById('sentimentConfidenceChart').getContext('2d');
-    if (charts.confidenceDist) charts.confidenceDist.destroy();
-    charts.confidenceDist = new Chart(ctx2, {
-        type: 'pie',
+    // Add search functionality with multi-field support
+    const searchInput = document.getElementById('reviewSearch');
+    if (searchInput) {
+        // Remove existing listeners
+        const newSearchInput = searchInput.cloneNode(true);
+        searchInput.parentNode.replaceChild(newSearchInput, searchInput);
+        
+        newSearchInput.addEventListener('input', function(e) {
+            const searchTerm = e.target.value.toLowerCase().trim();
+            const rows = tbody.getElementsByTagName('tr');
+            let visibleCount = 0;
+            
+            Array.from(rows).forEach(row => {
+                const rating = row.cells[0].textContent;
+                const sentiment = row.cells[1].textContent;
+                const diff = row.cells[3].textContent;
+                const text = row.cells[4].textContent.toLowerCase();
+                
+                const matches = !searchTerm || 
+                    text.includes(searchTerm) ||
+                    rating.includes(searchTerm) ||
+                    sentiment.includes(searchTerm) ||
+                    diff.includes(searchTerm);
+                
+                row.style.display = matches ? '' : 'none';
+                if (matches) visibleCount++;
+            });
+            
+            // Show result count
+            updateSearchResultCount(visibleCount, rows.length);
+        });
+    }
+    
+    // Add sort functionality to table headers
+    addTableSorting();
+}
+
+// Add sorting to table headers
+function addTableSorting() {
+    const headers = document.querySelectorAll('#reviewsTable thead th');
+    headers.forEach((header, index) => {
+        if (index < 4) { // Only make first 4 columns sortable (not text column)
+            header.style.cursor = 'pointer';
+            header.style.userSelect = 'none';
+            header.innerHTML += ' <span class="sort-indicator">↕</span>';
+            header.addEventListener('click', () => sortTable(index));
+        }
+    });
+}
+
+// Sort table by column
+function sortTable(columnIndex) {
+    const tbody = document.getElementById('reviewsTableBody');
+    const rows = Array.from(tbody.getElementsByTagName('tr'));
+    
+    // Toggle sort direction if clicking same column
+    if (currentSortColumn === columnIndex) {
+        currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+        currentSortColumn = columnIndex;
+        currentSortDirection = 'asc';
+    }
+    
+    // Sort rows
+    rows.sort((a, b) => {
+        const aValue = parseFloat(a.cells[columnIndex].getAttribute('data-value') || a.cells[columnIndex].textContent) || 0;
+        const bValue = parseFloat(b.cells[columnIndex].getAttribute('data-value') || b.cells[columnIndex].textContent) || 0;
+        
+        if (currentSortDirection === 'asc') {
+            return aValue - bValue;
+        } else {
+            return bValue - aValue;
+        }
+    });
+    
+    // Re-append sorted rows
+    rows.forEach(row => tbody.appendChild(row));
+    
+    // Update sort indicators
+    updateSortIndicators(columnIndex);
+}
+
+// Update sort indicators in headers
+function updateSortIndicators(activeColumn) {
+    const headers = document.querySelectorAll('#reviewsTable thead th');
+    headers.forEach((header, index) => {
+        const indicator = header.querySelector('.sort-indicator');
+        if (indicator) {
+            if (index === activeColumn) {
+                indicator.textContent = currentSortDirection === 'asc' ? ' ↑' : ' ↓';
+            } else {
+                indicator.textContent = ' ↕';
+            }
+        }
+    });
+}
+
+// Update search result count
+function updateSearchResultCount(visible, total) {
+    let countDiv = document.getElementById('searchResultCount');
+    if (!countDiv) {
+        countDiv = document.createElement('div');
+        countDiv.id = 'searchResultCount';
+        countDiv.style.cssText = 'margin: 10px 0; color: #666; font-size: 0.9em;';
+        const searchBox = document.querySelector('.search-box');
+        if (searchBox) {
+            searchBox.appendChild(countDiv);
+        }
+    }
+    countDiv.textContent = `Showing ${visible} of ${total} reviews`;
+}
+
+// Render data processing statistics
+function renderDataProcessingStats() {
+    if (!dataProcessingStats || Object.keys(dataProcessingStats).length === 0) {
+        console.warn('No data processing stats available');
+        console.log('dataProcessingStats:', dataProcessingStats);
+        return;
+    }
+
+    console.log('Rendering data processing stats:', dataProcessingStats);
+
+    // Format numbers with commas
+    function formatNumber(num) {
+        if (num === null || num === undefined || num === 0 || num === '-') return '-';
+        return num.toLocaleString();
+    }
+
+    // Update raw data stats
+    const raw = dataProcessingStats.raw || {};
+    const rawCountEl = document.getElementById('rawCount');
+    const rawSizeEl = document.getElementById('rawSize');
+    const rawPartitionsEl = document.getElementById('rawPartitions');
+    if (rawCountEl) rawCountEl.textContent = formatNumber(raw.count);
+    if (rawSizeEl) rawSizeEl.textContent = raw.size_mb || '-';
+    if (rawPartitionsEl) rawPartitionsEl.textContent = raw.partitions || '-';
+
+    // Update cleaned data stats
+    const cleaned = dataProcessingStats.cleaned || {};
+    const cleanedCountEl = document.getElementById('cleanedCount');
+    const cleanedSizeEl = document.getElementById('cleanedSize');
+    const cleanedPartitionsEl = document.getElementById('cleanedPartitions');
+    if (cleanedCountEl) cleanedCountEl.textContent = formatNumber(cleaned.count);
+    if (cleanedSizeEl) cleanedSizeEl.textContent = cleaned.size_mb || '-';
+    if (cleanedPartitionsEl) cleanedPartitionsEl.textContent = cleaned.partitions || '-';
+
+    // Sentiment Analysis stats removed - only showing Raw and Cleaned data
+
+    // Update processing metrics
+    const metrics = dataProcessingStats.processing_metrics || {};
+    const retentionRateEl = document.getElementById('retentionRate');
+    const dataReductionEl = document.getElementById('dataReduction');
+    if (retentionRateEl) retentionRateEl.textContent = metrics.retention_rate ? metrics.retention_rate + '%' : '-';
+    if (dataReductionEl) dataReductionEl.textContent = metrics.data_reduction ? metrics.data_reduction + '%' : '-';
+
+    // Update Spark info
+    const sparkInfo = dataProcessingStats.spark_info || {};
+    const sparkAppNameEl = document.getElementById('sparkAppName');
+    const sparkVersionEl = document.getElementById('sparkVersion');
+    const sparkParallelismEl = document.getElementById('sparkParallelism');
+    if (sparkAppNameEl) sparkAppNameEl.textContent = sparkInfo.app_name || '-';
+    if (sparkVersionEl) sparkVersionEl.textContent = sparkInfo.spark_version || '-';
+    if (sparkParallelismEl) sparkParallelismEl.textContent = sparkInfo.default_parallelism || '-';
+
+    // Update data quality metrics
+    const quality = dataProcessingStats.data_quality || {};
+    const dataCompletenessEl = document.getElementById('dataCompleteness');
+    const nullTextEl = document.getElementById('nullText');
+    const nullRatingEl = document.getElementById('nullRating');
+    const nullSentimentEl = document.getElementById('nullSentiment');
+    if (dataCompletenessEl) dataCompletenessEl.textContent = (quality.completeness !== undefined && quality.completeness !== null) ? quality.completeness : '-';
+    if (nullTextEl) nullTextEl.textContent = formatNumber(quality.null_text || 0);
+    if (nullRatingEl) nullRatingEl.textContent = formatNumber(quality.null_rating || 0);
+    if (nullSentimentEl) nullSentimentEl.textContent = formatNumber(quality.null_sentiment || 0);
+
+    // Render data processing flow chart
+    renderDataProcessingChart();
+}
+
+// Render data processing flow chart
+function renderDataProcessingChart() {
+    const ctx = document.getElementById('dataProcessingChart');
+    if (!ctx) return;
+
+    // Destroy existing chart if it exists
+    if (charts.dataProcessingChart) {
+        charts.dataProcessingChart.destroy();
+    }
+
+    const raw = dataProcessingStats.raw || {};
+    const cleaned = dataProcessingStats.cleaned || {};
+
+    charts.dataProcessingChart = new Chart(ctx, {
+        type: 'bar',
         data: {
-            labels: Object.keys(confidenceRanges),
-            datasets: [{
-                data: Object.values(confidenceRanges),
-                backgroundColor: [
-                    'rgba(239, 68, 68, 0.6)',
-                    'rgba(245, 158, 11, 0.6)',
-                    'rgba(251, 191, 36, 0.6)',
-                    'rgba(34, 197, 94, 0.6)',
-                    'rgba(59, 130, 246, 0.6)'
-                ],
-                borderWidth: 2
-            }]
+            labels: ['Raw Data', 'Cleaned Data'],
+            datasets: [
+                {
+                    label: 'Record Count',
+                    data: [raw.count || 0, cleaned.count || 0],
+                    backgroundColor: ['rgba(54, 162, 235, 0.6)', 'rgba(75, 192, 192, 0.6)'],
+                    borderColor: ['rgba(54, 162, 235, 1)', 'rgba(75, 192, 192, 1)'],
+                    borderWidth: 2,
+                    yAxisID: 'y'
+                },
+                {
+                    label: 'Data Size (MB)',
+                    data: [raw.size_mb || 0, cleaned.size_mb || 0],
+                    backgroundColor: ['rgba(255, 99, 132, 0.6)', 'rgba(255, 159, 64, 0.6)'],
+                    borderColor: ['rgba(255, 99, 132, 1)', 'rgba(255, 159, 64, 1)'],
+                    borderWidth: 2,
+                    yAxisID: 'y1'
+                }
+            ]
         },
         options: {
             responsive: true,
@@ -757,95 +714,239 @@ function renderMismatchedCharts() {
             plugins: {
                 title: {
                     display: true,
-                    text: 'Sentiment Confidence Distribution'
+                    text: 'Data Processing Pipeline: Record Count and Data Size Across Stages',
+                    font: {
+                        size: 16,
+                        weight: 'bold'
+                    }
+                },
+                legend: {
+                    display: true,
+                    position: 'top'
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.dataset.label || '';
+                            if (label) {
+                                label += ': ';
+                            }
+                            if (context.dataset.label === 'Record Count') {
+                                label += context.parsed.y.toLocaleString() + ' records';
+                            } else {
+                                label += context.parsed.y.toFixed(2) + ' MB';
+                            }
+                            return label;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    title: {
+                        display: true,
+                        text: 'Record Count'
+                    },
+                    ticks: {
+                        callback: function(value) {
+                            return value.toLocaleString();
+                        }
+                    }
+                },
+                y1: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    title: {
+                        display: true,
+                        text: 'Data Size (MB)'
+                    },
+                    grid: {
+                        drawOnChartArea: false
+                    }
                 }
             }
         }
     });
 }
 
-// Render topics table with theme classification
-function renderTopicsTable(data) {
-    const tbody = document.getElementById('topicsTableBody');
-    tbody.innerHTML = '';
+// Review Examples Carousel Functions
+let currentReviewIndex = 0;
+let totalReviews = 0;
 
-    // Theme keywords
-    const themes = {
-        'quality': ['quality', 'durable', 'last', 'break', 'work', 'good', 'bad'],
-        'durability': ['last', 'durable', 'long', 'wear', 'hold', 'strong'],
-        'fit': ['fit', 'size', 'small', 'large', 'perfect', 'right'],
-        'value': ['price', 'worth', 'value', 'cheap', 'expensive', 'money']
-    };
-
-    function classifyTheme(name, words) {
-        const text = (name + ' ' + words).toLowerCase();
-        for (const [theme, keywords] of Object.entries(themes)) {
-            if (keywords.some(kw => text.includes(kw))) {
-                return theme.charAt(0).toUpperCase() + theme.slice(1);
-            }
-        }
-        return 'Other';
+// Render review examples from actual data
+function renderReviewExamples(data) {
+    if (!data || data.length === 0) {
+        console.warn('No mismatched reviews data available');
+        return;
     }
-
-    data.forEach(topic => {
-        const row = tbody.insertRow();
-        row.insertCell(0).textContent = topic.Topic;
-        row.insertCell(1).textContent = topic.Count;
-        row.insertCell(2).textContent = topic.Name || 'N/A';
+    
+    // Take up to 20 reviews with highest mismatch
+    const topReviews = data
+        .filter(r => r.text && r.text.trim().length > 0) // Filter out empty reviews
+        .sort((a, b) => Math.abs(parseFloat(b.abs_diff || b.diff || 0)) - Math.abs(parseFloat(a.abs_diff || a.diff || 0)))
+        .slice(0, 20);
+    
+    totalReviews = topReviews.length;
+    
+    if (totalReviews === 0) {
+        console.warn('No valid reviews to display');
+        return;
+    }
+    
+    const carousel = document.getElementById('reviewCarousel');
+    const dotsContainer = document.getElementById('carouselDots');
+    
+    if (!carousel || !dotsContainer) {
+        console.error('Carousel elements not found');
+        return;
+    }
+    
+    // Clear existing content
+    carousel.innerHTML = '';
+    dotsContainer.innerHTML = '';
+    
+    // Generate review cards
+    topReviews.forEach((review, index) => {
+        const rating = parseInt(review.rating) || 0;
+        const sentiment = parseFloat(review.sentiment_star) || 0;
+        const absDiff = Math.abs(parseFloat(review.abs_diff || review.diff || 0));
+        const text = (review.text || '').trim();
         
-        // Parse representation (top words)
-        let topWords = 'N/A';
-        try {
-            if (topic.Representation) {
-                const words = JSON.parse(topic.Representation);
-                topWords = words.slice(0, 10).join(', ');
-                row.insertCell(3).textContent = topWords;
-                row.insertCell(4).textContent = classifyTheme(topic.Name || '', topWords);
-            } else {
-                row.insertCell(3).textContent = 'N/A';
-                row.insertCell(4).textContent = 'Other';
-            }
-        } catch (e) {
-            row.insertCell(3).textContent = topic.Representation || 'N/A';
-            row.insertCell(4).textContent = 'Other';
+        if (!text) return;
+        
+        // Create card
+        const card = document.createElement('div');
+        card.className = `review-example-card ${index === 0 ? 'active' : ''}`;
+        card.setAttribute('data-index', index);
+        
+        // Generate problem description
+        let problemText = '';
+        if (rating > sentiment) {
+            problemText = `User gave ${rating} stars but the text expresses ${sentiment < 2.5 ? 'negative' : sentiment < 3.5 ? 'neutral' : 'positive'} sentiment (${sentiment.toFixed(1)} stars). This mismatch indicates potential fake review or rating error.`;
+        } else if (rating < sentiment) {
+            problemText = `User gave ${rating} stars but the text expresses ${sentiment > 3.5 ? 'positive' : sentiment > 2.5 ? 'neutral' : 'negative'} sentiment (${sentiment.toFixed(1)} stars). Rating may not reflect actual product sentiment.`;
+        } else {
+            problemText = `Rating and sentiment are aligned, but this review was flagged for further analysis.`;
         }
+        
+        // Escape HTML to prevent XSS
+        const escapeHtml = (str) => {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        };
+        
+        const escapedText = escapeHtml(text);
+        const escapedProblem = escapeHtml(problemText);
+        
+        card.innerHTML = `
+            <div class="review-header">
+                <div class="rating-display">
+                    <span class="user-rating">User Rating: <span class="rating-value">${rating}</span> ⭐</span>
+                    <span class="sentiment-rating">AI Sentiment: <span class="sentiment-value">${sentiment.toFixed(1)}</span> ⭐</span>
+                    <span class="mismatch-badge">Mismatch: ${absDiff.toFixed(1)} stars</span>
+                </div>
+            </div>
+            <div class="review-text">
+                <p class="review-quote"><strong>Review:</strong> "${escapedText}"</p>
+                <p class="review-analysis"><strong>Problem:</strong> ${escapedProblem}</p>
+            </div>
+        `;
+        
+        carousel.appendChild(card);
+        
+        // Create dot
+        const dot = document.createElement('span');
+        dot.className = `dot ${index === 0 ? 'active' : ''}`;
+        dot.setAttribute('onclick', `goToReviewExample(${index})`);
+        dotsContainer.appendChild(dot);
     });
+    
+    // Initialize carousel
+    if (totalReviews > 0) {
+        goToReviewExample(0);
+        
+        // Restart auto-rotate
+        if (carouselInterval) {
+            clearInterval(carouselInterval);
+        }
+        carouselInterval = setInterval(() => {
+            changeReviewExample(1);
+        }, 6000); // Changed from 30s to 6s for better UX
+    }
 }
 
-// Render mismatched reviews table
-function renderMismatchedTable(data) {
-    const tbody = document.getElementById('reviewsTableBody');
-    tbody.innerHTML = '';
+function changeReviewExample(direction) {
+    if (totalReviews === 0) return;
+    const newIndex = (currentReviewIndex + direction + totalReviews) % totalReviews;
+    goToReviewExample(newIndex);
+}
 
-    data.forEach(review => {
-        const row = tbody.insertRow();
-        row.insertCell(0).textContent = review.rating;
-        row.insertCell(1).textContent = review.sentiment_star;
-        
-        const confCell = row.insertCell(2);
-        const conf = parseFloat(review.sentiment_conf);
-        confCell.textContent = conf.toFixed(3);
-        if (conf < 0.4) confCell.className = 'badge badge-low';
-        else if (conf < 0.7) confCell.className = 'badge badge-medium';
-        else confCell.className = 'badge badge-high';
-        
-        row.insertCell(3).textContent = review.diff;
-        const textCell = row.insertCell(4);
-        textCell.className = 'review-text';
-        textCell.textContent = review.text || 'N/A';
-    });
+function goToReviewExample(index) {
+    // Remove active class from current card and dot
+    const currentCard = document.querySelector('.review-example-card.active');
+    const currentDot = document.querySelector('.dot.active');
+    
+    if (currentCard) {
+        currentCard.classList.remove('active');
+    }
+    if (currentDot) {
+        currentDot.classList.remove('active');
+    }
+    
+    // Add active class to new card and dot
+    const newCard = document.querySelector(`.review-example-card[data-index="${index}"]`);
+    const newDot = document.querySelector(`.dot:nth-child(${index + 1})`);
+    
+    if (newCard) {
+        newCard.classList.add('active');
+    }
+    if (newDot) {
+        newDot.classList.add('active');
+    }
+    
+    currentReviewIndex = index;
+}
 
-    // Add search functionality
-    const searchInput = document.getElementById('reviewSearch');
-    if (searchInput) {
-        searchInput.addEventListener('input', function(e) {
-            const searchTerm = e.target.value.toLowerCase();
-            const rows = tbody.getElementsByTagName('tr');
-            
-            Array.from(rows).forEach(row => {
-                const text = row.cells[4].textContent.toLowerCase();
-                row.style.display = text.includes(searchTerm) ? '' : 'none';
-            });
+// Auto-rotate carousel every 5 seconds
+let carouselInterval;
+
+// Setup carousel hover pause (will be called after reviews are loaded)
+function setupCarouselHover() {
+    const carouselContainer = document.querySelector('.review-examples-container');
+    if (carouselContainer) {
+        carouselContainer.addEventListener('mouseenter', () => {
+            if (carouselInterval) {
+                clearInterval(carouselInterval);
+            }
+        });
+        
+        carouselContainer.addEventListener('mouseleave', () => {
+            if (totalReviews > 0) {
+                carouselInterval = setInterval(() => {
+                    changeReviewExample(1);
+                }, 6000); // Changed from 30s to 6s
+            }
         });
     }
+    
+    // Add keyboard navigation for carousel
+    document.addEventListener('keydown', (e) => {
+        // Only handle if not typing in input fields
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+            return;
+        }
+        
+        if (e.key === 'ArrowLeft') {
+            e.preventDefault();
+            changeReviewExample(-1);
+        } else if (e.key === 'ArrowRight') {
+            e.preventDefault();
+            changeReviewExample(1);
+        }
+    });
 }
